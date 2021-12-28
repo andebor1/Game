@@ -13,10 +13,6 @@ time_changes dw 0
 background_color db 00
 boundry dw 5
 
-;player position
-x_pos dw 160
-y_pos dw 100
-
 ;points
 points_str db "000", "$"
 points dw 00
@@ -29,12 +25,16 @@ wing_distance dw 3
 wings_size dw 3
 window_color db 16h
 
-;velocities
+;player stats
+x_pos dw 160
+y_pos dw 100
 velocity_x dw 0
 velocity_y dw 0
 max_velocity_x dw 3
 max_velocity_y dw 3
 dush_speed dw 5
+health dw 5
+health_str dw "00$"
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
@@ -739,7 +739,42 @@ proc spawn_astroid
     ret
 endp
 
+proc update_health
+    push ax
+    push bx
+    push cx
+    push dx
 
+    mov dl, 0ah
+
+    mov bx, offset health_str
+    
+    gettoH$: ;set the bx in the right place
+        inc bx
+        cmp [byte bx], '$'
+        jne gettoH$
+    dec bx
+
+
+    mov cx, [points]
+
+    div10H:
+    mov ax, cx
+    div dl
+    add ah, 30h
+    mov [byte bx], ah
+    dec bx
+    xor ah, ah
+    mov cx, ax
+
+    cmp al, 0
+    jg div10H
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+endp
 
 proc add_points
     push ax
@@ -782,6 +817,7 @@ proc draw_UI
     push ax
     push dx
 
+    points:
     mov bh, 00h
     mov dh, 02h
     mov dl, 13h
@@ -792,12 +828,38 @@ proc draw_UI
     mov ah, 9h
     int 21h
 
+    health:
+    mov bh, 00h
+    mov dh, 02h
+    mov dl, 20h
+    mov ah, 02h
+    int 10h
+
+    mov dx, offset health_str
+    mov ah, 9h
+    int 21h
+
     pop dx
     pop ax
     ret
 endp
 
 proc collided_player
+    push ax
+
+    mov ax, [health]
+    cmp ax, 0
+    jle Die
+    sub [health], 1
+    call update_health
+    ret
+
+    Die:
+        call kill_player
+    ret
+endp
+
+proc kill_player
     add [points], 1
     ret
 endp
