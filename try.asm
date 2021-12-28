@@ -34,7 +34,7 @@ max_velocity_x dw 3
 max_velocity_y dw 3
 dush_speed dw 5
 health dw 5
-health_str dw "00$"
+health_str db "000", "$"
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
@@ -756,7 +756,7 @@ proc update_health
     dec bx
 
 
-    mov cx, [points]
+    mov cx, [health]
 
     div10H:
     mov ax, cx
@@ -817,7 +817,7 @@ proc draw_UI
     push ax
     push dx
 
-    points:
+    draw_points:
     mov bh, 00h
     mov dh, 02h
     mov dl, 13h
@@ -828,7 +828,7 @@ proc draw_UI
     mov ah, 9h
     int 21h
 
-    health:
+    draw_health:
     mov bh, 00h
     mov dh, 02h
     mov dl, 20h
@@ -847,15 +847,17 @@ endp
 proc collided_player
     push ax
 
-    mov ax, [health]
-    cmp ax, 0
+    cmp [health], 0
     jle Die
     sub [health], 1
     call update_health
+    pop ax
     ret
 
     Die:
         call kill_player
+
+    pop ax
     ret
 endp
 
