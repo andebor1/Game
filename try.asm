@@ -862,7 +862,7 @@ proc collided_player
 endp
 
 proc kill_player
-    add [points], 1
+    add [points], 1 ;just to show
     ret
 endp
 
