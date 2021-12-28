@@ -13,9 +13,11 @@ time_changes dw 0
 background_color db 00
 boundry dw 5
 
+;player position
 x_pos dw 160
 y_pos dw 100
 
+;points
 points_str db "000", "$"
 points dw 00
 
