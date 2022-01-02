@@ -12,6 +12,7 @@ time_changes dw 0
 
 play db 1
 gameover_str db "Game Over$"
+len_game_over_str db 0
 
 background_color db 00
 boundry dw 5
@@ -37,7 +38,7 @@ max_velocity_x dw 3
 max_velocity_y dw 3
 dush_speed dw 5
 health dw 5
-health_str db "000", "$"
+health_str db "005", "$"
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
@@ -850,7 +851,7 @@ endp
 proc collided_player
     push ax
 
-    cmp [health], 0
+    cmp [health], 1
     jle Die
     sub [health], 1
     call update_health
@@ -865,7 +866,7 @@ proc collided_player
 endp
 
 proc kill_player
-    mov [background_color], 0 ;just to show
+    mov [background_color], 0
     mov [play], 0
     call clear_player
     call clear_screen
@@ -878,6 +879,22 @@ Start:
 
         mov ax, 40h
         mov es, ax
+
+        mov bx, offset gameover_str
+        find_length:
+        cmp [byte bx], '$'
+        je start_game
+        inc bx
+        jmp find_length
+
+        start_game:
+        sub bx, offset gameover_str
+        mov ax, bx
+        mov dl, 2
+        div dl
+        mov [len_game_over_str], al
+        xor ah, ah
+        mov [points], ax
 
         call clear_screen
         mov bl, 0
@@ -913,15 +930,19 @@ Start:
             jmp check_time
 
             GameOver:
+            mov dl, 13h
+            sub dl, [len_game_over_str]
             mov bh, 00h
             mov dh, 8h
-            mov dl, 13h
             mov ah, 02h
             int 10h
 
             mov dx, offset gameover_str
             mov ah, 9h
             int 21h
+
+            xor ah, ah
+            int 16h
 
 proc quit
     jmp Exit
