@@ -10,6 +10,9 @@ Clock equ es:6Ch
 Time_Aux db 0
 time_changes dw 0
 
+play db 1
+gameover_str db "Game Over$"
+
 background_color db 00
 boundry dw 5
 
@@ -862,7 +865,10 @@ proc collided_player
 endp
 
 proc kill_player
-    add [points], 1 ;just to show
+    mov [background_color], 0 ;just to show
+    mov [play], 0
+    call clear_player
+    call clear_screen
     ret
 endp
 
@@ -887,6 +893,8 @@ Start:
             inc [time_changes]
         
         cycle:
+            cmp [play], 0
+            je GameOver
             call clear_player
             call move_player
             call move_astroids
@@ -903,6 +911,17 @@ Start:
             call add_points
             call draw_UI
             jmp check_time
+
+            GameOver:
+            mov bh, 00h
+            mov dh, 8h
+            mov dl, 13h
+            mov ah, 02h
+            int 10h
+
+            mov dx, offset gameover_str
+            mov ah, 9h
+            int 21h
 
 proc quit
     jmp Exit
