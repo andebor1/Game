@@ -418,33 +418,59 @@ proc move_player
     je quit_closer
 
     cmp al, 77h
-    je move_up
+    je move_up_closer
     cmp al, 57h
-    je move_up
+    je move_up_closer
 
     cmp al, 73h
-    je move_down
+    je move_down_closer
     cmp al, 53h
-    je move_down
+    je move_down_closer
 
     cmp al, 64h
-    je move_right
+    je move_right_closer
     cmp al, 44h
-    je move_right
+    je move_right_closer
 
     cmp al, 61h
-    je move_left
-    cmp al, 41h
-    je move_left
+    je move_left_closer
+    cmp al, 41h             
+    je move_left_closer
 
     cmp al, 20h
     je dush_closer
 
     finish_closer:
+        cmp [velocity_x], 0
+        jl addoneX
+        je checkY
+        dec [velocity_x]
+        jmp checkY
+        addoneX:
+        inc [velocity_x]
+
+        checkY:
+        cmp [velocity_y], 0
+        jl addoneY
+        je finish_helper
+        dec [velocity_y]
+        jmp finish_helper
+        addoneY:
+        inc [velocity_y]
+        finish_helper:
         jmp finish_closer_closer
     
     quit_closer:
         call quit
+
+    move_up_closer:
+        jmp move_up
+    move_down_closer:
+        jmp move_down
+    move_left_closer:
+        jmp move_left
+    move_right_closer:
+        jmp move_right
 
 
     move_up:
@@ -453,7 +479,7 @@ proc move_player
         cmp ax, 0
         jle finish_closer_closer
         cmp ax, [max_velocity_y]
-        jg doubleU
+        jge doubleU
         sub [velocity_y], 1
         jmp finish_closer_closer
         doubleU:
@@ -465,7 +491,7 @@ proc move_player
         cmp ax, [max_velocity_y]
         jge finish
         cmp ax, 0
-        jl doubleD
+        jle doubleD
         add [velocity_y], 1
         jmp finish
         doubleD:
@@ -480,7 +506,7 @@ proc move_player
         cmp ax, [max_velocity_x]
         jge finish
         cmp ax, 0
-        jl doubleR
+        jle doubleR
         add [velocity_x], 1
         jmp finish
         doubleR:
@@ -496,7 +522,7 @@ proc move_player
         cmp ax, 0
         jle finish
         cmp ax, [max_velocity_x]
-        jg doubleL
+        jge doubleL
         sub [velocity_x], 1
         jmp finish
         doubleL:
