@@ -480,7 +480,7 @@ proc move_player
         jle finish_closer_closer
         cmp ax, [max_velocity_y]
         jge doubleU
-        sub [velocity_y], 1
+        sub [velocity_y], 3
         jmp finish_closer_closer
         doubleU:
             sub [velocity_y], 3
@@ -492,7 +492,7 @@ proc move_player
         jge finish
         cmp ax, 0
         jle doubleD
-        add [velocity_y], 1
+        add [velocity_y], 3
         jmp finish
         doubleD:
             add [velocity_y], 3
@@ -507,7 +507,7 @@ proc move_player
         jge finish
         cmp ax, 0
         jle doubleR
-        add [velocity_x], 1
+        add [velocity_x], 3
         jmp finish
         doubleR:
             add [velocity_x], 3
@@ -523,7 +523,7 @@ proc move_player
         jle finish
         cmp ax, [max_velocity_x]
         jge doubleL
-        sub [velocity_x], 1
+        sub [velocity_x], 3
         jmp finish
         doubleL:
             sub [velocity_x], 3
