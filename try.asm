@@ -500,7 +500,7 @@ proc move_player
         sub [velocity_y], 3
         jmp finish_closer_closer
         doubleU:
-            sub [velocity_y], 3
+            sub [velocity_y], 6
             jmp finish_closer_closer
 
     dush_closer:
@@ -515,7 +515,7 @@ proc move_player
         add [velocity_y], 3
         jmp finish
         doubleD:
-            add [velocity_y], 3
+            add [velocity_y], 6
             jmp finish
 
     move_right:
@@ -527,7 +527,7 @@ proc move_player
         add [velocity_x], 3
         jmp finish
         doubleR:
-            add [velocity_x], 3
+            add [velocity_x], 6
             jmp finish
 
     finish_closer_closer:
@@ -543,7 +543,7 @@ proc move_player
         sub [velocity_x], 3
         jmp finish
         doubleL:
-            sub [velocity_x], 3
+            sub [velocity_x], 6
             jmp finish
 
     dush:
