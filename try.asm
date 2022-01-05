@@ -9,6 +9,7 @@ Clock equ es:6Ch
 
 Time_Aux db 0
 time_changes dw 0
+paused db 1
 
 play db 1
 gameover_str db "Game Over$"
@@ -412,6 +413,11 @@ proc move_player
     mov ah, 00h
     int 16h
 
+    cmp al, 1bh
+    je pause_check
+    cmp [paused], 0
+    je qfunc_closer
+
     cmp al, 74h
     je quit_closer
     cmp al, 54h
@@ -440,6 +446,9 @@ proc move_player
     cmp al, 20h
     je dush_closer
 
+    qfunc_closer:
+    jmp qfunc
+
     finish_closer:
         cmp [velocity_x], 0
         jl addoneX
@@ -460,6 +469,14 @@ proc move_player
         finish_helper:
         jmp finish_closer_closer
     
+    pause_check:
+        mov al, 1
+        sub al, [paused]
+        mov [paused], al
+        cmp al, 0
+        je finish_closer
+        jmp qfunc
+
     quit_closer:
         call quit
 
@@ -486,6 +503,9 @@ proc move_player
             sub [velocity_y], 3
             jmp finish_closer_closer
 
+    dush_closer:
+        jmp dush
+
     move_down:
         mov ax, [velocity_y]
         cmp ax, [max_velocity_y]
@@ -497,9 +517,6 @@ proc move_player
         doubleD:
             add [velocity_y], 3
             jmp finish
-
-    dush_closer:
-        jmp dush
 
     move_right:
         mov ax, [velocity_x]
@@ -940,6 +957,8 @@ Start:
             je GameOver
             call clear_player
             call move_player
+            cmp [paused], 0
+            je check_time
             call move_astroids
 
             inc [time_since_last_spawn]
