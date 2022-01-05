@@ -14,6 +14,8 @@ paused db 1
 play db 1
 gameover_str db "Game Over$"
 len_game_over_str db 0
+restart_str db "Press 'r' to restart$"
+len_restart_str db 0
 
 background_color db 00
 boundry dw 5
@@ -923,21 +925,37 @@ Start:
         mov ax, 40h
         mov es, ax
 
-        mov bx, offset gameover_str
-        find_length:
-        cmp [byte bx], '$'
-        je start_game
-        inc bx
-        jmp find_length
+        startgame:
 
-        start_game:
+        mov bx, offset gameover_str
+        find_length_gameover:
+        cmp [byte bx], '$'
+        je set_length_gameover
+        inc bx
+        jmp find_length_gameover
+
+        set_length_gameover:
         sub bx, offset gameover_str
         mov ax, bx
         mov dl, 2
         div dl
         mov [len_game_over_str], al
         xor ah, ah
-        mov [points], ax
+
+        mov bx, offset restart_str
+        find_length_restart:
+        cmp [byte bx], '$'
+        je set_length_restart
+        inc bx
+        jmp find_length_restart
+
+        set_length_restart:
+        sub bx, offset restart_str
+        mov ax, bx
+        mov dl, 2
+        div dl
+        mov [len_restart_str], al
+        xor ah, ah
 
         call clear_screen
         mov bl, 0
@@ -974,6 +992,10 @@ Start:
             call draw_UI
             jmp check_time
 
+            jmp GameOver
+            startgame_closer:
+                jmp startgame
+
             GameOver:
             mov dl, 13h
             sub dl, [len_game_over_str]
@@ -986,8 +1008,36 @@ Start:
             mov ah, 9h
             int 21h
 
+            mov dl, 13h
+            sub dl, [len_restart_str]
+            mov bh, 00h
+            mov dh, 010h
+            mov ah, 02h
+            int 10h
+
+            mov dx, offset restart_str
+            mov ah, 9h
+            int 21h
+
+
             xor ah, ah
             int 16h
+            cmp al, 72h
+            je restart
+            cmp al, 52h
+            je restart
+            
+            call quit
+            restart:
+                mov [paused], 1
+                mov [health], 5
+                mov [points], 0
+                mov [velocity_x], 0
+                mov [velocity_y], 0
+                mov [x_pos], 160
+                mov [y_pos], 100
+                mov [play], 1
+                jmp startgame_closer
 
 proc quit
     jmp Exit
