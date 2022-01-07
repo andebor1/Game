@@ -5,6 +5,7 @@ MODEL small
 STACK 256
 
 DATASEG
+;https://www.fountainware.com/EXPL/vga_color_palettes.htm color palette
 Clock equ es:6Ch
 
 Time_Aux db 0
@@ -27,7 +28,7 @@ points dw 00
 
 ;spaceship draw
 space_ship_size dw 6
-space_ship_color db 10
+space_ship_color db 31h
 wing_distance dw 3
 wings_size dw 3
 window_color db 16h
@@ -43,11 +44,20 @@ dush_speed dw 5
 health dw 5
 health_str db "005", "$"
 
+;energy
+energy_weight dw 5
+energy_height dw 7
+energy_color db 65h
+energy_center_color db 2ch
+energy_color_array db 8 dup(65h), 2ch, 3 dup(65h), 2 dup(2ch), 2 dup(65h), 2 dup(2 dup(2ch), 3 dup(65h)), 2ch, 8 dup(65h)  
+energy_pos_x dw 100
+energy_pos_y dw 150
+
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
 number_of_astroids dw 3
 max_number_of_astroids dw 10
-astroid_color db 16h
+astroid_color db 1bh
 astroid_size_x dw 15
 astroid_size_y dw 10
 
@@ -403,6 +413,103 @@ proc draw_astroid
     pop ax
     ret
 endp
+
+;proc draw_energy
+    push ax
+    push bx
+    push cx
+    push dx
+
+    mov dx, [energy_pos_y]
+    mov al, [energy_color]
+    mov ah, 0ch
+    energy_vetical:
+        mov cx, [energy_pos_x]
+    energy_horizontal:
+        mov bh, 0
+        int 10h
+        inc cx
+        push ax
+        mov ax, [energy_pos_x]
+        add ax, [energy_weight]
+        cmp cx, ax
+        pop ax
+        jl energy_horizontal
+        push ax
+        mov ax, [energy_pos_y]
+        add ax, [energy_height]
+        inc dx
+        cmp dx, ax
+        pop ax
+        jl energy_vetical
+    push ax
+    mov ax, [energy_pos_y]
+    add ax, [energy_height]
+    add ax, [energy_height]
+    cmp dx, ax
+    jl center
+    add ax, [energy_height]
+    cmp dx, ax
+    jl lowerpart
+    jmp finished
+
+    center:
+        pop ax
+        mov al, [energy_center_color]
+        jmp energy_vetical
+    lowerpart:
+        pop ax
+        mov al, [energy_color]
+        jmp energy_vetical
+    
+    finished:
+    pop ax
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+;endp
+
+proc draw_energyV2
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+
+    mov si, offset energy_color_array
+
+    mov dx, [energy_pos_y]
+    energy_veticalV2:
+        mov cx, [energy_pos_x]
+    energy_horizontalV2:
+        mov bh, 0
+        mov al, [byte si]
+        mov ah, 0ch
+        int 10h
+        inc si
+        inc cx
+        mov ax, [energy_pos_x]
+        add ax, [energy_weight]
+        cmp cx, ax
+        jl energy_horizontalV2
+        mov ax, [energy_pos_y]
+        add ax, [energy_height]
+        inc dx
+        cmp dx, ax
+        jl energy_veticalV2
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+
 
 proc move_player
     push ax
@@ -961,6 +1068,7 @@ Start:
         mov bl, 0
 
         call draw_space_ship
+        call draw_energyV2
        
 
         check_time:
