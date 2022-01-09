@@ -47,9 +47,9 @@ health_str db "005", "$"
 ;energy
 energy_weight dw 5
 energy_height dw 7
-energy_color db 65h
+energy_color db 20h
 energy_center_color db 2ch
-energy_color_array db 8 dup(65h), 2ch, 3 dup(65h), 2 dup(2ch), 2 dup(65h), 2 dup(2 dup(2ch), 3 dup(65h)), 2ch, 8 dup(65h)  
+energy_color_array db 8 dup(0),1,0,0,0,1,1,0,0,2 dup(1,1,0,0,0),1,8 dup(0)
 energy_pos_x dw 100
 energy_pos_y dw 150
 
@@ -414,65 +414,7 @@ proc draw_astroid
     ret
 endp
 
-;proc draw_energy
-    push ax
-    push bx
-    push cx
-    push dx
-
-    mov dx, [energy_pos_y]
-    mov al, [energy_color]
-    mov ah, 0ch
-    energy_vetical:
-        mov cx, [energy_pos_x]
-    energy_horizontal:
-        mov bh, 0
-        int 10h
-        inc cx
-        push ax
-        mov ax, [energy_pos_x]
-        add ax, [energy_weight]
-        cmp cx, ax
-        pop ax
-        jl energy_horizontal
-        push ax
-        mov ax, [energy_pos_y]
-        add ax, [energy_height]
-        inc dx
-        cmp dx, ax
-        pop ax
-        jl energy_vetical
-    push ax
-    mov ax, [energy_pos_y]
-    add ax, [energy_height]
-    add ax, [energy_height]
-    cmp dx, ax
-    jl center
-    add ax, [energy_height]
-    cmp dx, ax
-    jl lowerpart
-    jmp finished
-
-    center:
-        pop ax
-        mov al, [energy_center_color]
-        jmp energy_vetical
-    lowerpart:
-        pop ax
-        mov al, [energy_color]
-        jmp energy_vetical
-    
-    finished:
-    pop ax
-
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-;endp
-
-proc draw_energyV2
+proc draw_energy
     push ax
     push bx
     push cx
@@ -480,13 +422,14 @@ proc draw_energyV2
     push si
 
     mov si, offset energy_color_array
-
     mov dx, [energy_pos_y]
     energy_veticalV2:
         mov cx, [energy_pos_x]
     energy_horizontalV2:
         mov bh, 0
-        mov al, [byte si]
+        mov bx, offset energy_color
+        add bl, [byte si]
+        mov al, [bx]
         mov ah, 0ch
         int 10h
         inc si
@@ -706,6 +649,30 @@ proc move_player
 
     qfunc:
         call draw_space_ship
+        mov ax, [energy_pos_x]
+        add ax, [energy_weight]
+        cmp [x_pos], ax
+        jg no_energy
+        mov ax, [x_pos]
+        add ax, [space_ship_size]
+        add ax, [wing_distance]
+        add ax, [wings_size]
+        cmp ax, [energy_pos_x]
+        jl no_energy
+        mov ax, [y_pos]
+        add ax, [space_ship_size]
+        add ax, [wing_distance]
+        add ax, [wing_distance]
+        add ax, [wings_size]
+        cmp ax, [energy_pos_y]
+        jl no_energy
+        mov ax, [energy_pos_y]
+        add ax, [energy_height]
+        cmp [y_pos], ax
+        jg no_energy
+        call collect_energy
+
+        no_energy:
 
     pop ax
     ret
@@ -1001,21 +968,76 @@ proc draw_UI
 endp
 
 proc collided_player
-    push ax
-
     cmp [health], 1
     jle Die
     sub [health], 1
     call update_health
-    pop ax
     ret
 
     Die:
         call kill_player
+    ret
+endp
 
+proc collect_energy
+    push ax
+    push bx
+    push cx
+    push dx
+
+    inc [points]
+
+    mov al, [energy_color]
+    mov ah, [energy_center_color]
+    push ax
+    mov [energy_color], 0
+    mov [energy_center_color], 0
+    call draw_energy
+
+    mov cx, 20
+    xor bx, bx
+    xor dx, dx 
+
+    RandLoopEnergy1:
+        mov ax, [Clock]         ; read timer counter
+        mov ah, [byte cs:bx]    ; read one byte from memory
+        xor al, ah              ; xor memory and counter
+        and al, 00001111b       ; leave result between 0-15
+        mov ah, 0
+        add dx, ax
+        inc bx
+        loop RandLoopEnergy1
+
+    mov [energy_pos_x], dx
+
+    mov cx, 12
+    xor bx, bx
+    xor dx, dx 
+
+    RandLoopEnergy2:
+        mov ax, [Clock]         ; read timer counter
+        mov ah, [byte cs:bx]    ; read one byte from memory
+        xor al, ah              ; xor memory and counter
+        and al, 00001111b       ; leave result between 0-15
+        mov ah, 0
+        add dx, ax
+        inc bx
+        loop RandLoopEnergy2
+
+    mov [energy_pos_y], dx
+    pop ax
+    mov [energy_color], al
+    mov [energy_center_color], ah
+
+
+    pop dx
+    pop cx
+    pop bx
     pop ax
     ret
 endp
+
+
 
 proc kill_player
     mov [background_color], 0
@@ -1068,7 +1090,7 @@ Start:
         mov bl, 0
 
         call draw_space_ship
-        call draw_energyV2
+        call draw_energy
        
 
         check_time:
@@ -1086,6 +1108,7 @@ Start:
             cmp [paused], 0
             je check_time
             call move_astroids
+            call draw_energy
 
             inc [time_since_last_spawn]
             mov ax, [time_since_last_spawn]
