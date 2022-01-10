@@ -33,6 +33,8 @@ wing_distance dw 3
 wings_size dw 3
 window_color db 16h
 
+pressed db 0
+
 ;player stats
 x_pos dw 160
 y_pos dw 100
@@ -46,10 +48,10 @@ health_str db "005", "$"
 
 ;energy
 energy_weight dw 5
-energy_height dw 7
+energy_height dw 10
 energy_color db 20h
 energy_center_color db 2ch
-energy_color_array db 8 dup(0),1,0,0,0,1,1,0,0,2 dup(1,1,0,0,0),1,8 dup(0)
+energy_color_array db 8 dup(0),1,0,0,0,1,1,0,0,2 dup(1,1,0,0,0),1,23 dup(0)
 energy_pos_x dw 100
 energy_pos_y dw 150
 
@@ -62,6 +64,7 @@ astroid_size_x dw 15
 astroid_size_y dw 10
 
 ;astroids' velocities
+wave dw 5
 astroids_spawn_rate dw 50
 time_since_last_spawn dw 0
 astroid_velocity_x dw 2
@@ -929,6 +932,17 @@ proc add_points
 
     cmp al, 0
     jg div10
+
+    mov ax, [wave]
+    cmp [points], ax
+    jle dont_make_harder
+
+    add [wave], 5
+    sub [astroids_spawn_rate], 2
+    add [astroid_velocity_x], 1
+
+    dont_make_harder:
+
 
     pop dx
     pop cx
