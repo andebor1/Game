@@ -40,7 +40,7 @@ x_pos dw 160
 y_pos dw 100
 velocity_x dw 0
 velocity_y dw 0
-max_velocity_x dw 3
+max_velocity_x dw 5
 max_velocity_y dw 3
 dush_speed dw 5
 health dw 5
@@ -459,6 +459,7 @@ endp
 
 proc move_player
     push ax
+    push cx
 
     mov ah, 01h
     int 16h
@@ -467,6 +468,14 @@ proc move_player
     
     mov ah, 00h
     int 16h
+
+    ;;;;
+    push ax
+    mov ah, 0ch
+    mov al, 0
+    int 21h
+    pop ax
+    ;;;
 
     cmp al, 1bh
     je pause_check
@@ -521,6 +530,7 @@ proc move_player
         jmp finish_helper
         addoneY:
         inc [velocity_y]
+
         finish_helper:
         jmp finish_closer_closer
     
@@ -677,6 +687,7 @@ proc move_player
 
         no_energy:
 
+    pop cx
     pop ax
     ret
 endp
