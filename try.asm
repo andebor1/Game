@@ -33,7 +33,8 @@ wing_distance dw 3
 wings_size dw 3
 window_color db 16h
 
-pressed db 0
+last_key_pressed db 0
+timer_pressed db 18
 
 ;player stats
 x_pos dw 160
@@ -461,21 +462,42 @@ proc move_player
     push ax
     push cx
 
-    mov ah, 01h
-    int 16h
+    ;mov ah, 01h
+    ;int 16h
 
-    jz finish_closer
-    
-    mov ah, 00h
-    int 16h
+    ;jz finish_closer
 
-    ;;;;
+    mov ah, 0bh
+    int 21h
+
+    cmp al, 0ffh
+    jne dont_start_timer
+    mov [timer_pressed], 8
+    ;mov ah, 00h
+    ;int 16h
+
+    mov ah, 08
+    int 21h
+    jmp move
+
+    dont_start_timer:
+    dec [timer_pressed]
+    cmp [timer_pressed], 0
+    jle finish_closer
+    mov al, [last_key_pressed]
+
+
+    move:
+
+    ;;;; clear keyboard buffer
     push ax
     mov ah, 0ch
-    mov al, 0
+    mov al, 00
     int 21h
     pop ax
-    ;;;
+    ;;;;
+    mov [last_key_pressed], al
+    
 
     cmp al, 1bh
     je pause_check
@@ -562,10 +584,10 @@ proc move_player
         jle finish_closer_closer
         cmp ax, [max_velocity_y]
         jge doubleU
-        sub [velocity_y], 3
+        sub [velocity_y], 2
         jmp finish_closer_closer
         doubleU:
-            sub [velocity_y], 6
+            sub [velocity_y], 3
             jmp finish_closer_closer
 
     dush_closer:
@@ -577,10 +599,10 @@ proc move_player
         jge finish
         cmp ax, 0
         jle doubleD
-        add [velocity_y], 3
+        add [velocity_y], 2
         jmp finish
         doubleD:
-            add [velocity_y], 6
+            add [velocity_y], 3
             jmp finish
 
     move_right:
@@ -589,10 +611,10 @@ proc move_player
         jge finish
         cmp ax, 0
         jle doubleR
-        add [velocity_x], 3
+        add [velocity_x], 2
         jmp finish
         doubleR:
-            add [velocity_x], 6
+            add [velocity_x], 3
             jmp finish
 
     finish_closer_closer:
@@ -605,10 +627,10 @@ proc move_player
         jle finish
         cmp ax, [max_velocity_x]
         jge doubleL
-        sub [velocity_x], 3
+        sub [velocity_x], 2
         jmp finish
         doubleL:
-            sub [velocity_x], 6
+            sub [velocity_x], 3
             jmp finish
 
     dush:
@@ -913,7 +935,7 @@ proc update_health
     pop ax
 endp
 
-proc add_points
+proc upadate_points
     push ax
     push bx
     push cx
@@ -924,6 +946,7 @@ proc add_points
     mov bx, offset points_str
     
     getto$: ;set the bx in the right place
+        mov [byte bx], '0'
         inc bx
         cmp [byte bx], '$'
         jne getto$
@@ -1144,7 +1167,7 @@ Start:
 
             dont_spawn_astroid:
 
-            call add_points
+            call upadate_points
             call draw_UI
             jmp check_time
 
@@ -1193,6 +1216,9 @@ Start:
                 mov [x_pos], 160
                 mov [y_pos], 100
                 mov [play], 1
+                call update_health
+                call upadate_points
+                call draw_UI
                 jmp startgame_closer
 
 proc quit
