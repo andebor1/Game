@@ -34,7 +34,7 @@ wings_size dw 3
 window_color db 16h
 
 last_key_pressed db 0
-timer_pressed db 18
+timer_pressed db 8
 
 ;player stats
 x_pos dw 160
@@ -462,28 +462,20 @@ proc move_player
     push ax
     push cx
 
-    ;mov ah, 01h
-    ;int 16h
+    mov ah, 01h
+    int 16h
 
-    ;jz finish_closer
-
-    mov ah, 0bh
-    int 21h
-
-    cmp al, 0ffh
-    jne dont_start_timer
+    jz dont_start_timer
     mov [timer_pressed], 8
-    ;mov ah, 00h
-    ;int 16h
 
-    mov ah, 08
-    int 21h
     jmp move
 
     dont_start_timer:
     dec [timer_pressed]
     cmp [timer_pressed], 0
     jle finish_closer
+    cmp [last_key_pressed], 1bh
+    je finish_closer
     mov al, [last_key_pressed]
 
 
