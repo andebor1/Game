@@ -48,11 +48,20 @@ health dw 5
 health_str db "005", "$"
 
 ;energy
-energy_weight dw 5
+energy_weight dw 7
 energy_height dw 10
-energy_color db 20h
-energy_center_color db 2ch
-energy_color_array db 8 dup(0),1,0,0,0,1,1,0,0,2 dup(1,1,0,0,0),1,23 dup(0)
+energy_color db 00h, 37h, 34h, 2ch
+;black, dark blue, cyan, yellow
+
+energy_color_array db 0,0,21 dup (0), 4 dup(1), 3 dup(0), 5 dup(1),0, 0,1,1,2,2,1,0, 1,1,2,2,2,1,1, 2 dup(2 dup(1), 2,3,3,1,1), 13 dup(1),0,0,6 dup(1) 
+;0,0,21 dup (0) ;;
+;4 dup(1), 3 dup(0), ;;
+;5 dup(1),0, ;;
+;0,1,1,2,2,1,0, ;;
+;1,1,2,2,2,1,1, ;;
+;2 dup(2 dup(1), 2,3,3,1,1) ;; 
+;13 dup(1),0,0,6 dup(1) ;;
+
 energy_pos_x dw 100
 energy_pos_y dw 150
 
@@ -60,9 +69,12 @@ energy_pos_y dw 150
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
 number_of_astroids dw 3
 max_number_of_astroids dw 10
-astroid_color db 1bh
 astroid_size_x dw 15
 astroid_size_y dw 10
+
+;astroids colors
+astroid_color db 00, 1bh, 16h, 13h ;darker
+astroids_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(1), 3 dup(0)      ,0, 5 dup(2), 3 dup(3), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(3), 3 dup(0)      ,6 dup(3), 3 dup(1), 6 dup(3)      ,7 dup(3), 3 dup(1), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
 ;astroids' velocities
 wave dw 5
@@ -386,29 +398,89 @@ proc draw_astroid
     jle dont_draw
     draw_next:
         push cx
+        mov bx, offset astroids_color_array
         mov dx, [word si + 2]
     vertical:
         mov cx, [word si]
     horizontal:
-         mov bh, 0
-         mov al, [astroid_color]
-         mov ah, 0ch
-         int 10h
-         inc cx
-         mov ax, [word si]
-         add ax, [astroid_size_x]
-         cmp cx, ax
-         jl horizontal
-         inc dx
-         mov ax, [word si + 2]
-         add ax, [astroid_size_y]
-         cmp dx, ax
-         jl vertical
+        push bx
+
+        mov al, [byte bx] ;select the color according to the array
+        xor ah, ah
+        add ax, offset astroid_color
+        mov bx, ax
+        mov al, [byte bx] ;the right color
+        mov bh, 0
+        mov ah, 0ch
+        int 10h
+
+        pop bx
+        inc bx
+
+        inc cx
+        mov ax, [word si]
+        add ax, [astroid_size_x]
+        cmp cx, ax
+        jl horizontal
+
+        inc dx
+        mov ax, [word si + 2]
+        add ax, [astroid_size_y]
+        cmp dx, ax
+        jl vertical
     add si, 4
     pop cx
     loop draw_next
 
     dont_draw:
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc clear_astroid
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    
+    mov si, offset astroids_array
+    
+    mov cx, [number_of_astroids]
+    cmp cx, 0
+    jle CLdont_draw
+    CLdraw_next:
+        push cx
+        mov dx, [word si + 2]
+    CLvertical:
+        mov cx, [word si]
+    CLhorizontal:
+        mov bh, 0
+        mov al, [background_color]
+        mov ah, 0ch
+        int 10h
+
+        inc cx
+        mov ax, [word si]
+        add ax, [astroid_size_x]
+        cmp cx, ax
+        jl CLhorizontal
+
+        inc dx
+        mov ax, [word si + 2]
+        add ax, [astroid_size_y]
+        cmp dx, ax
+        jl CLvertical
+    add si, 4
+    pop cx
+    loop CLdraw_next
+
+    CLdont_draw:
 
     pop si
     pop dx
@@ -449,6 +521,39 @@ proc draw_energy
         jl energy_veticalV2
 
     pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc clear_energy
+    push ax
+    push bx
+    push cx
+    push dx
+
+    mov dx, [energy_pos_y]
+    CLenergy_veticalV2:
+        mov cx, [energy_pos_x]
+    CLenergy_horizontalV2:
+        mov bh, 0
+        mov bx, offset energy_color
+        mov al, [background_color]
+        mov ah, 0ch
+        int 10h
+        inc cx
+        mov ax, [energy_pos_x]
+        add ax, [energy_weight]
+        cmp cx, ax
+        jl CLenergy_horizontalV2
+        mov ax, [energy_pos_y]
+        add ax, [energy_height]
+        inc dx
+        cmp dx, ax
+        jl CLenergy_veticalV2
+
     pop dx
     pop cx
     pop bx
@@ -714,11 +819,7 @@ proc move_astroids
 
     mov si, offset astroids_array
 
-    mov bl, [astroid_color]
-    mov al, [background_color]
-    mov [astroid_color], al
-    call draw_astroid
-    mov [astroid_color], bl
+    call clear_astroid
 
     xor cx, cx
 
@@ -1026,13 +1127,7 @@ proc collect_energy
     push dx
 
     inc [points]
-
-    mov al, [energy_color]
-    mov ah, [energy_center_color]
-    push ax
-    mov [energy_color], 0
-    mov [energy_center_color], 0
-    call draw_energy
+    call clear_energy
 
     mov cx, 20
     xor bx, bx
@@ -1065,9 +1160,6 @@ proc collect_energy
         loop RandLoopEnergy2
 
     mov [energy_pos_y], dx
-    pop ax
-    mov [energy_color], al
-    mov [energy_center_color], ah
 
 
     pop dx
