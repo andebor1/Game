@@ -28,7 +28,8 @@ points dw 00
 
 ;spaceship draw
 space_ship_size dw 6
-space_ship_color db 31h
+space_ship_color db 77h
+space_ship_animation_color db 2fh
 wing_distance dw 3
 wings_size dw 3
 window_color db 16h
@@ -66,15 +67,21 @@ energy_pos_x dw 100
 energy_pos_y dw 150
 
 ;astroids
-astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)
+astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
+boosters dw 100, 170, 100,150, 8 dup(0,0)    ;x1,y1,x2,y2,x3,y3...
 number_of_astroids dw 3
+number_of_boosters dw 2
 max_number_of_astroids dw 10
+max_number_of_boosters dw 10
 astroid_size_x dw 15
 astroid_size_y dw 10
 
 ;astroids colors
 astroid_color db 00, 1bh, 16h, 13h ;darker
 astroids_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(1), 3 dup(0)      ,0, 5 dup(2), 3 dup(3), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(3), 3 dup(0)      ,6 dup(3), 3 dup(1), 6 dup(3)      ,7 dup(3), 3 dup(1), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
+
+boosters_colors db 00, 1bh, 16h, 13h, 37h ;darker, cyan
+boosters_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(4), 3 dup(0)      ,0, 5 dup(2), 3 dup(4), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(4), 3 dup(0)      ,6 dup(3), 3 dup(4), 6 dup(3)      ,7 dup(3), 3 dup(4), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
 ;astroids' velocities
 wave dw 5
@@ -100,18 +107,23 @@ endp
 proc clear_player
     push ax
     push bx
+    push cx
 
     mov al, [space_ship_color]
     mov ah, [window_color]
+    mov cl, [space_ship_animation_color]
 
     mov bl, [background_color]
     mov [space_ship_color], bl
+    mov [space_ship_animation_color], bl
     mov [window_color], bl
     call draw_space_ship
     
     mov [space_ship_color], al
     mov [window_color], ah
+    mov [space_ship_animation_color], cl
 
+    pop cx
     pop bx
     pop ax
     ret
@@ -174,6 +186,18 @@ proc draw_space_ship
     push bx
     push cx
     push dx
+
+    mov ax, [time_changes] ;change the color of the animation
+    mov dl, 20
+    div dl
+    cmp ah, 0
+    jne stay_color
+    mov al, [space_ship_animation_color]
+    mov ah, [space_ship_color]
+    mov [space_ship_color], al
+    mov [space_ship_animation_color], ah
+
+    stay_color:
 
     mov dx, [y_pos] 
     mov cx, [x_pos] 
@@ -490,6 +514,112 @@ proc clear_astroid
     ret
 endp
 
+proc draw_boosters
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    
+    mov si, offset boosters
+    
+    mov cx, [number_of_boosters]
+    cmp cx, 0
+    jle dont_draw
+    BSTdraw_next:
+        push cx
+        mov bx, offset boosters_color_array
+        mov dx, [word si + 2]
+    BSTvertical:
+        mov cx, [word si]
+    BSThorizontal:
+        push bx
+
+        mov al, [byte bx] ;select the color according to the array
+        xor ah, ah
+        add ax, offset boosters_colors
+        mov bx, ax
+        mov al, [byte bx] ;the right color
+        mov bh, 0
+        mov ah, 0ch
+        int 10h
+
+        pop bx
+        inc bx
+
+        inc cx
+        mov ax, [word si]
+        add ax, [astroid_size_x]
+        cmp cx, ax
+        jl BSThorizontal
+
+        inc dx
+        mov ax, [word si + 2]
+        add ax, [astroid_size_y]
+        cmp dx, ax
+        jl BSTvertical
+    add si, 4
+    pop cx
+    loop BSTdraw_next
+
+    BSTdont_draw:
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc clear_boosters
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    
+    mov si, offset boosters
+    
+    mov cx, [number_of_boosters]
+    cmp cx, 0
+    jle BSTCLdont_draw
+    BSTCLdraw_next:
+        push cx
+        mov dx, [word si + 2]
+    BSTCLvertical:
+        mov cx, [word si]
+    BSTCLhorizontal:
+        mov bh, 0
+        mov al, [background_color]
+        mov ah, 0ch
+        int 10h
+
+        inc cx
+        mov ax, [word si]
+        add ax, [astroid_size_x]
+        cmp cx, ax
+        jl BSTCLhorizontal
+
+        inc dx
+        mov ax, [word si + 2]
+        add ax, [astroid_size_y]
+        cmp dx, ax
+        jl BSTCLvertical
+    add si, 4
+    pop cx
+    loop BSTCLdraw_next
+
+    BSTCLdont_draw:
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
 proc draw_energy
     push ax
     push bx
@@ -680,7 +810,7 @@ proc move_player
         cmp ax, 0
         jle finish_closer_closer
         cmp ax, [max_velocity_y]
-        jge doubleU
+        jge doubleU ;changes velocity faster if the player going the other direction
         sub [velocity_y], 2
         jmp finish_closer_closer
         doubleU:
@@ -695,7 +825,7 @@ proc move_player
         cmp ax, [max_velocity_y]
         jge finish
         cmp ax, 0
-        jle doubleD
+        jle doubleD ;changes velocity faster if the player going the other direction
         add [velocity_y], 2
         jmp finish
         doubleD:
@@ -707,7 +837,7 @@ proc move_player
         cmp ax, [max_velocity_x]
         jge finish
         cmp ax, 0
-        jle doubleR
+        jle doubleR ;changes velocity faster if the player going the other direction
         add [velocity_x], 2
         jmp finish
         doubleR:
@@ -723,19 +853,19 @@ proc move_player
         cmp ax, 0
         jle finish
         cmp ax, [max_velocity_x]
-        jge doubleL
+        jge doubleL ;changes velocity faster if the player going the other direction
         sub [velocity_x], 2
         jmp finish
         doubleL:
             sub [velocity_x], 3
             jmp finish
 
-    dush:
+    dush: ;an optional feature, might remove it later
         mov ax, [dush_speed]
         mov [velocity_x], ax
         jmp finish
 
-    finish:
+    finish: ;checks the boundries of the x axis
         mov ax, [x_pos]
         add ax, [velocity_x]
         sub ax, [wing_distance]
@@ -753,7 +883,7 @@ proc move_player
         mov ax, [velocity_x]
         add [x_pos], ax
 
-        change_y:
+        change_y: ;checks the boundries of the y axis
             mov ax, [y_pos]
             add ax, [velocity_y]
             sub ax, [wing_distance]
@@ -779,7 +909,7 @@ proc move_player
             mov ax, [velocity_y]
             add [y_pos], ax
 
-    qfunc:
+    qfunc: ;checks if touches the energy
         call draw_space_ship
         mov ax, [energy_pos_x]
         add ax, [energy_weight]
@@ -815,6 +945,7 @@ proc move_astroids
     push ax
     push bx
     push cx
+    push dx
     push si
 
     mov si, offset astroids_array
@@ -882,9 +1013,12 @@ proc move_astroids
     cmp [word si + 2], ax
     jl no_collision
 
-    call collided_player
-    jmp remove
 
+    push 0
+    mov [points], 10
+    call collided_player
+    pop ax
+    jmp remove
 
     no_collision:
     add si, 4
@@ -896,7 +1030,90 @@ proc move_astroids
 
     no_astroids:
 
+    move_boosters: ;;;;;;;;;;;;;;;;;;;;boosters
+
+    mov si, offset boosters
+
+    call clear_boosters
+
+    xor cx, cx
+
+    cmp [number_of_boosters], 0
+    jle BSTno_astroids_closer
+    
+    BSTnext_astroid:
+
+    mov ax, [word astroid_velocity_x]
+    sub [word si], ax
+    mov ax, [word astroid_velocity_y]
+    add [word si + 2], ax
+    cmp [word si], 0
+    jle BSTremove
+    mov ax, 200
+    sub ax, [astroid_size_y]
+    cmp [word si + 2], ax
+    jl BSTdont_remove
+
+    BSTremove:
+    push si
+    call remove_booster
     pop si
+    jmp BSTno_collision
+
+    BSTno_astroids_closer:
+        jmp BSTno_astroids
+
+    BSTnext_astroid_closer:
+        jmp BSTnext_astroid
+
+    BSTdont_remove:
+    mov ax, [x_pos]
+    add ax, [space_ship_size]
+    add ax, [wing_distance]
+    add ax, [wings_size]
+    cmp [word si], ax ;checks if the x position is greater then the player's
+    jg BSTno_collision
+
+    mov ax, [x_pos]
+    sub ax, [wing_distance]
+    sub ax, [wings_size]
+    sub ax, [astroid_size_x]
+    cmp [word si], ax ;checks if the x position is lower then the player's
+    jl BSTno_collision
+
+    mov ax, [y_pos]
+    add ax, [space_ship_size]
+    add ax, [wing_distance]
+    add ax, [wing_distance]
+    add ax, [wings_size]
+    cmp [word si + 2], ax
+    jg BSTno_collision
+
+    mov ax, [y_pos]
+    sub ax, [wing_distance]
+    sub ax, [wing_distance]
+    sub ax, [wings_size]
+    sub ax, [astroid_size_y]
+    cmp [word si + 2], ax
+    jl BSTno_collision
+
+    push 1
+    call collided_player
+    pop ax
+    jmp BSTremove
+
+    BSTno_collision:
+    add si, 4
+    inc cx
+    cmp cx, [number_of_boosters]
+    jl BSTnext_astroid_closer
+
+
+    BSTno_astroids:
+    call draw_boosters
+
+    pop si
+    pop dx
     pop cx
     pop bx
     pop ax
@@ -942,6 +1159,45 @@ proc remove_astroid
         ret
 endp
 
+proc remove_booster
+    push bp
+    mov bp, sp
+    push ax
+    push bx
+    push cx
+    push si
+
+
+    mov bx, [bp + 4]
+    mov si, offset boosters
+
+    xor cx, cx
+    BSTreplace_astroid:
+        cmp si, bx
+        jle BSTreplace_next
+
+        mov ax, [word si]
+        mov [word si - 4], ax
+
+        mov ax, [word si + 2]
+        mov [word si - 2], ax
+
+        BSTreplace_next:
+        add si, 4
+        inc cx
+        cmp cx, [number_of_boosters]
+        jl BSTreplace_astroid
+
+        dec [number_of_boosters]
+
+        pop si
+        pop cx
+        pop bx
+        pop ax
+        pop bp
+        ret
+endp
+
 proc spawn_astroid
     push ax
     push cx
@@ -967,6 +1223,9 @@ proc spawn_astroid
         inc bx
         loop RandLoop
 
+        cmp al, 12
+        jg spawn_booster
+
     inc [number_of_astroids]
     mov si, offset astroids_array
 
@@ -976,6 +1235,24 @@ proc spawn_astroid
     deeper_into_the_memory:
         add si, 4
         loop deeper_into_the_memory
+    
+    mov [word si], 320
+    mov ax, [astroid_size_x]
+    sub [word si], ax
+    mov [word si + 2], dx
+
+    jmp dont_spawn
+
+    spawn_booster:
+    inc [number_of_boosters]
+    mov si, offset boosters
+
+    mov cx, [number_of_boosters]
+    dec cx
+
+    BSTdeeper_into_the_memory:
+        add si, 4
+        loop BStdeeper_into_the_memory
     
     mov [word si], 320
     mov ax, [astroid_size_x]
@@ -1060,16 +1337,8 @@ proc upadate_points
     cmp al, 0
     jg div10
 
-    mov ax, [wave]
-    cmp [points], ax
-    jle dont_make_harder
-
-    add [wave], 5
-    sub [astroids_spawn_rate], 2
-    add [astroid_velocity_x], 1
-
-    dont_make_harder:
-
+    dec [wave]
+    call make_harder
 
     pop dx
     pop cx
@@ -1109,14 +1378,34 @@ proc draw_UI
 endp
 
 proc collided_player
+    push bp
+    mov bp, sp
+    push ax
+
+    mov ax, [word bp + 4]
+    cmp ax, 1
+    je health_boost
+    
     cmp [health], 1
     jle Die
     sub [health], 1
     call update_health
+    jmp return
+
+    health_boost:
+        inc [health]
+        call update_health
+
+    return:
+
+    pop ax
+    pop bp
     ret
 
     Die:
         call kill_player
+    pop ax
+    pop bp
     ret
 endp
 
@@ -1165,6 +1454,29 @@ proc collect_energy
     pop dx
     pop cx
     pop bx
+    pop ax
+    ret
+endp
+
+proc make_harder
+    push ax
+    push dx
+
+    mov ax, [points]
+    mov dl, 10
+    div dl
+    xor ah, ah
+    inc al
+    mov [astroid_velocity_x], ax
+    mov dx, 30
+    sub dx, ax
+    mov [astroids_spawn_rate], dx
+    
+
+
+    dont_change_hardness:
+
+    pop dx
     pop ax
     ret
 endp
