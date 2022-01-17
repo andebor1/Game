@@ -45,7 +45,7 @@ velocity_x dw 0
 velocity_y dw 0
 max_velocity_x dw 5
 max_velocity_y dw 3
-dush_speed dw 5
+dush_speed dw 0
 health dw 5
 health_str db "005", "$"
 
@@ -69,7 +69,7 @@ energy_pos_y dw 150
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-boosters dw 100, 170, 100,150, 8 dup(0,0)
+boosters dw 200, 170, 320,150, 8 dup(0,0)
 number_of_astroids dw 3
 number_of_boosters dw 2
 max_number_of_astroids dw 10
@@ -85,7 +85,7 @@ boosters_colors db 00, 1bh, 16h, 13h, 37h ;darker, cyan
 boosters_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(4), 3 dup(0)      ,0, 5 dup(2), 3 dup(4), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(4), 3 dup(0)      ,6 dup(3), 3 dup(4), 6 dup(3)      ,7 dup(3), 3 dup(4), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
 ;astroids' velocities
-wave dw 5
+wave dw 5 ;for hardness functionality
 astroids_spawn_rate dw 50
 time_since_last_spawn dw 0
 astroid_velocity_x dw 2
@@ -1396,7 +1396,6 @@ proc upadate_points ;convert the points from the number object to the string, no
     jg div10
 
     dec [wave]
-    call make_harder
 
     pop dx
     pop cx
@@ -1476,6 +1475,7 @@ proc collided_player ;funcion that called after the player is hit by something, 
 
     points_boost:
         add [points], 5
+        call make_harder
 
     return:
 
@@ -1530,6 +1530,7 @@ proc collect_energy
         loop RandLoopEnergy2
 
     mov [energy_pos_y], dx
+    call make_harder
 
 
     pop dx
@@ -1539,23 +1540,51 @@ proc collect_energy
     ret
 endp
 
-proc make_harder
+proc make_harder ;called when collecting energy
     push ax
     push dx
 
     mov ax, [points]
+
+    cmp ax, 30
+    jl velocity_and_spawn_rate
+    cmp ax, 70
+    jl only_spawn_rate
+    jmp only_velocity
+
+    velocity_and_spawn_rate:
     mov dl, 10
     div dl
     xor ah, ah
     inc al
     mov [astroid_velocity_x], ax
-    mov dx, 30
+    mov dx, 60
     sub dx, ax
     mov [astroids_spawn_rate], dx
+    jmp make_harder_return
+
+    only_spawn_rate:
+    cmp [astroids_spawn_rate], 25
+    jle make_harder_return
+    mov dl, 5
+    div dl
+    mov al, ah
+    xor ah, ah
+    sub [astroids_spawn_rate], ax
+    jmp make_harder_return
+
+    only_velocity:
+    cmp [astroid_velocity_x], 10
+    jg make_harder_return
+    mov dl, 4
+    div dl
+    cmp ah, 0
+    jne make_harder_return
+    inc [astroid_velocity_x]
     
 
 
-    dont_change_hardness:
+    make_harder_return:
 
     pop dx
     pop ax
@@ -1616,6 +1645,7 @@ Start:
 
         call draw_space_ship
         call draw_energy
+        call pause
        
 
         check_time:
