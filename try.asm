@@ -17,6 +17,7 @@ gameover_str db "Game Over$"
 len_game_over_str db 0
 restart_str db "Press 'r' to restart$"
 len_restart_str db 0
+pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
 
 background_color db 00
 boundry dw 5
@@ -68,7 +69,7 @@ energy_pos_y dw 150
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-boosters dw 100, 170, 100,150, 8 dup(0,0)    ;x1,y1,x2,y2,x3,y3...
+boosters dw 100, 170, 100,150, 8 dup(0,0)
 number_of_astroids dw 3
 number_of_boosters dw 2
 max_number_of_astroids dw 10
@@ -94,17 +95,18 @@ astroid_velocity_y dw 0
 		
 CODESEG
 
-proc clear_screen
+proc clear_screen ;enters graphic mode and set the background color
     mov ax, 13h ;320x200
     int 10h 
 
-    mov bx, 00h
+    mov bl, [background_color]
+    xor bh, bh
     mov ah, 0bh
     int 10h
     ret
 endp
 
-proc clear_player
+proc clear_player ;basicly draws the player with the background color
     push ax
     push bx
     push cx
@@ -705,7 +707,7 @@ proc move_player
 
     jmp move
 
-    dont_start_timer:
+    dont_start_timer: ;handle the long press delay
     dec [timer_pressed]
     cmp [timer_pressed], 0
     jle finish_closer
@@ -726,37 +728,42 @@ proc move_player
     mov [last_key_pressed], al
     
 
-    cmp al, 1bh
+    cmp al, 1bh ;'esc'
     je pause_check
     cmp [paused], 0
-    je qfunc_closer
+    jne dont_pasue_here
 
-    cmp al, 74h
+    call draw_pause_UI
+    jmp qfunc_closer
+
+    dont_pasue_here:
+
+    cmp al, 74h ;t
     je quit_closer
-    cmp al, 54h
+    cmp al, 54h ;T
     je quit_closer
 
-    cmp al, 77h
+    cmp al, 77h ;w
     je move_up_closer
-    cmp al, 57h
+    cmp al, 57h ;W
     je move_up_closer
 
-    cmp al, 73h
+    cmp al, 73h ;s
     je move_down_closer
-    cmp al, 53h
+    cmp al, 53h ;S
     je move_down_closer
 
-    cmp al, 64h
+    cmp al, 64h ;d
     je move_right_closer
-    cmp al, 44h
+    cmp al, 44h ;D
     je move_right_closer
 
-    cmp al, 61h
+    cmp al, 61h ;a
     je move_left_closer
-    cmp al, 41h             
+    cmp al, 41h ;A            
     je move_left_closer
 
-    cmp al, 20h
+    cmp al, 20h ;'space'
     je dush_closer
 
     qfunc_closer:
@@ -784,11 +791,7 @@ proc move_player
         jmp finish_closer_closer
     
     pause_check:
-        mov al, 1
-        sub al, [paused]
-        mov [paused], al
-        cmp al, 0
-        je finish_closer
+        call pause
         jmp qfunc
 
     quit_closer:
@@ -957,7 +960,7 @@ proc move_astroids
     cmp [number_of_astroids], 0
     jle no_astroids_closer
     
-    next_astroid:
+    next_astroid: ;adds the velocity and checks if hit the boundries
 
     mov ax, [word astroid_velocity_x]
     sub [word si], ax
@@ -982,7 +985,7 @@ proc move_astroids
     next_astroid_closer:
         jmp next_astroid
 
-    dont_remove:
+    dont_remove: ;checks if collides the player
     mov ax, [x_pos]
     add ax, [space_ship_size]
     add ax, [wing_distance]
@@ -1015,7 +1018,6 @@ proc move_astroids
 
 
     push 0
-    mov [points], 10
     call collided_player
     pop ax
     jmp remove
@@ -1041,7 +1043,7 @@ proc move_astroids
     cmp [number_of_boosters], 0
     jle BSTno_astroids_closer
     
-    BSTnext_astroid:
+    BSTnext_astroid: ;add the velocity and check if hits the boundries
 
     mov ax, [word astroid_velocity_x]
     sub [word si], ax
@@ -1066,8 +1068,8 @@ proc move_astroids
     BSTnext_astroid_closer:
         jmp BSTnext_astroid
 
-    BSTdont_remove:
-    mov ax, [x_pos]
+    BSTdont_remove: ;check if the booster collides the player
+    mov ax, [x_pos] 
     add ax, [space_ship_size]
     add ax, [wing_distance]
     add ax, [wings_size]
@@ -1097,9 +1099,19 @@ proc move_astroids
     cmp [word si + 2], ax
     jl BSTno_collision
 
-    push 1
+
+    mov ax, offset boosters
+    sub si, ax
+    mov ax, si
+    mov dl, 4 ;every booster has the x and y, both are word, so 4 bytes
+    div dl
+    xor ah, ah
+    inc ax ;the first one is the same place as the boosters' offset
+
+    push ax
     call collided_player
     pop ax
+    add si, offset boosters
     jmp BSTremove
 
     BSTno_collision:
@@ -1120,7 +1132,7 @@ proc move_astroids
     ret
 endp
 
-proc remove_astroid
+proc remove_astroid ;removes an astroid and sets the array correctly
     push bp
     mov bp, sp
     push ax
@@ -1159,7 +1171,7 @@ proc remove_astroid
         ret
 endp
 
-proc remove_booster
+proc remove_booster ;removes a booster and sets the array according
     push bp
     mov bp, sp
     push ax
@@ -1198,7 +1210,7 @@ proc remove_booster
         ret
 endp
 
-proc spawn_astroid
+proc spawn_astroid ;spawn either an astroid or a boost.
     push ax
     push cx
     push dx
@@ -1223,7 +1235,7 @@ proc spawn_astroid
         inc bx
         loop RandLoop
 
-        cmp al, 12
+        cmp al, 13
         jg spawn_booster
 
     inc [number_of_astroids]
@@ -1232,7 +1244,7 @@ proc spawn_astroid
     mov cx, [number_of_astroids]
     dec cx
 
-    deeper_into_the_memory:
+    deeper_into_the_memory: ;sets si to be in the first free place of the array
         add si, 4
         loop deeper_into_the_memory
     
@@ -1250,9 +1262,9 @@ proc spawn_astroid
     mov cx, [number_of_boosters]
     dec cx
 
-    BSTdeeper_into_the_memory:
+    BSTdeeper_into_the_memory: ;sets si to be in the first free place if the array
         add si, 4
-        loop BStdeeper_into_the_memory
+        loop BSTdeeper_into_the_memory
     
     mov [word si], 320
     mov ax, [astroid_size_x]
@@ -1268,7 +1280,53 @@ proc spawn_astroid
     ret
 endp
 
-proc update_health
+proc pause
+    push ax
+    push bx
+
+    mov al, 1 ;switches the pause value
+    sub al, [paused]
+    mov [paused], al
+    cmp al, 0
+    jne clear_draw_pause_UI
+
+    call draw_pause_UI ;draws the indicator of the pause
+    jmp pause_return
+    
+    clear_draw_pause_UI: ;clears the pause indicator
+    call clear_screen
+
+    pause_return:
+
+
+    pop bx
+    pop ax
+    ret
+endp
+
+proc draw_pause_UI
+    push ax
+    push bx
+    push dx
+
+    mov bh, 00h ;page
+    mov dh, 02h
+    mov dl, 3h  ;line
+    mov ah, 02h
+    int 10h
+
+    mov dx, offset pause_str
+    mov ah, 9h
+    int 21h
+
+    pop dx
+    pop bx
+    pop ax
+    ret
+endp
+
+
+proc update_health ;convert the health variable to string - need to be called when chaging health!
     push ax
     push bx
     push cx
@@ -1305,7 +1363,7 @@ proc update_health
     pop ax
 endp
 
-proc upadate_points
+proc upadate_points ;convert the points from the number object to the string, no need to call when chaging points, it is done automaticly
     push ax
     push bx
     push cx
@@ -1346,7 +1404,7 @@ proc upadate_points
     pop ax
 endp
 
-proc draw_UI
+proc draw_UI ;draw the UI, points and health
     push ax
     push dx
 
@@ -1377,14 +1435,14 @@ proc draw_UI
     ret
 endp
 
-proc collided_player
+proc collided_player ;funcion that called after the player is hit by something, get 0 if it is an astroid, else it gives a random boost
     push bp
     mov bp, sp
     push ax
 
     mov ax, [word bp + 4]
-    cmp ax, 1
-    je health_boost
+    cmp ax, 0
+    jne boost
     
     cmp [health], 1
     jle Die
@@ -1392,9 +1450,32 @@ proc collided_player
     call update_health
     jmp return
 
+    boost:
+    xor bx, bx ;random boost
+
+    mov ax, [Clock]         ; read timer counter
+    mov ah, [byte cs:bx]    ; read one byte from memory
+    xor al, ah              ; xor memory and counter
+    and al, 00001111b       ; leave result between 0-15
+    mov ah, 0
+    inc bx
+
+    cmp ax, 9
+    jg speed_boost
+    cmp ax, 7
+    jg points_boost
+
     health_boost:
         inc [health]
         call update_health
+        jmp return
+
+    speed_boost:
+        inc [velocity_x]
+        jmp return
+
+    points_boost:
+        add [points], 5
 
     return:
 
