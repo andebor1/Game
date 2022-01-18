@@ -41,8 +41,8 @@ timer_pressed db 8
 ;player stats
 x_pos dw 160
 y_pos dw 100
-velocity_x dw 0
-velocity_y dw 0
+speed dw 1
+direction dw 0, 0
 max_velocity_x dw 5
 max_velocity_y dw 3
 dush_speed dw 0
@@ -69,7 +69,7 @@ energy_pos_y dw 150
 
 ;astroids
 astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-boosters dw 200, 170, 320,150, 8 dup(0,0)
+boosters dw 200, 170, 300,150, 8 dup(0,0)
 number_of_astroids dw 3
 number_of_boosters dw 2
 max_number_of_astroids dw 10
@@ -111,17 +111,17 @@ proc clear_player ;basicly draws the player with the background color
     push bx
     push cx
 
-    mov al, [space_ship_color]
+    mov al, [space_ship_color] ;saves the original colors of the spaceship
     mov ah, [window_color]
     mov cl, [space_ship_animation_color]
 
-    mov bl, [background_color]
+    mov bl, [background_color] ;changes the colors to the background color
     mov [space_ship_color], bl
     mov [space_ship_animation_color], bl
     mov [window_color], bl
     call draw_space_ship
     
-    mov [space_ship_color], al
+    mov [space_ship_color], al ;bring back the original colors
     mov [window_color], ah
     mov [space_ship_animation_color], cl
 
@@ -695,7 +695,9 @@ endp
 
 
 
-proc move_player
+
+
+proc move_playerV2
     push ax
     push cx
 
@@ -738,6 +740,8 @@ proc move_player
 
     dont_pasue_here:
 
+    mov bx, [speed]
+
     cmp al, 74h ;t
     je quit_closer
     cmp al, 54h ;T
@@ -770,22 +774,22 @@ proc move_player
     jmp qfunc
 
     finish_closer:
-        cmp [velocity_x], 0
+        cmp [word direction], 0
         jl addoneX
         je checkY
-        dec [velocity_x]
+        dec [word direction]
         jmp checkY
         addoneX:
-        inc [velocity_x]
+        inc [word direction]
 
         checkY:
-        cmp [velocity_y], 0
+        cmp [word direction + 2], 0
         jl addoneY
         je finish_helper
-        dec [velocity_y]
+        dec [word direction + 2]
         jmp finish_helper
         addoneY:
-        inc [velocity_y]
+        inc [word direction + 2]
 
         finish_helper:
         jmp finish_closer_closer
@@ -808,69 +812,78 @@ proc move_player
 
 
     move_up:
-        mov ax, [velocity_y]
+        mov ax, [word direction + 2]
         add ax, [max_velocity_y]
         cmp ax, 0
         jle finish_closer_closer
         cmp ax, [max_velocity_y]
         jge doubleU ;changes velocity faster if the player going the other direction
-        sub [velocity_y], 2
+        sub [word direction + 2], 2
+        sub [word direction + 2], bx
         jmp finish_closer_closer
         doubleU:
-            sub [velocity_y], 3
+            sub [word direction + 2], 3
+            sub [word direction + 2], bx
             jmp finish_closer_closer
 
     dush_closer:
         jmp dush
 
     move_down:
-        mov ax, [velocity_y]
+        mov ax, [word direction + 2]
         cmp ax, [max_velocity_y]
         jge finish
         cmp ax, 0
         jle doubleD ;changes velocity faster if the player going the other direction
-        add [velocity_y], 2
+        add [word direction + 2], 2
+        add [word direction + 2], bx
         jmp finish
         doubleD:
-            add [velocity_y], 3
+            add [word direction + 2], 3
+            add [word direction + 2], bx
             jmp finish
 
     move_right:
-        mov ax, [velocity_x]
+        mov ax, [word direction]
         cmp ax, [max_velocity_x]
         jge finish
         cmp ax, 0
         jle doubleR ;changes velocity faster if the player going the other direction
-        add [velocity_x], 2
+        add [word direction], 2
+        sub [word direction], bx
         jmp finish
         doubleR:
-            add [velocity_x], 3
+            add [word direction], 3
+            add [word direction], bx
             jmp finish
 
     finish_closer_closer:
         jmp finish
 
     move_left:
-        mov ax, [velocity_x]
+        mov ax, [word direction]
         add ax, [max_velocity_x]
         cmp ax, 0
         jle finish
         cmp ax, [max_velocity_x]
         jge doubleL ;changes velocity faster if the player going the other direction
-        sub [velocity_x], 2
+        sub [word direction], 2
+        sub [word direction], bx
         jmp finish
         doubleL:
-            sub [velocity_x], 3
+            sub [word direction], 3
+            sub [word direction], bx
             jmp finish
 
     dush: ;an optional feature, might remove it later
         mov ax, [dush_speed]
-        mov [velocity_x], ax
+        mov [word direction], ax
         jmp finish
 
     finish: ;checks the boundries of the x axis
         mov ax, [x_pos]
-        add ax, [velocity_x]
+        add ax, [word direction]
+        add ax, bx
         sub ax, [wing_distance]
         sub ax, [wings_size]
         cmp ax, [boundry]
@@ -883,12 +896,13 @@ proc move_player
         add ax, [boundry]
         cmp ax, 320
         jge change_y
-        mov ax, [velocity_x]
+        mov ax, [word direction]
         add [x_pos], ax
 
         change_y: ;checks the boundries of the y axis
             mov ax, [y_pos]
-            add ax, [velocity_y]
+            add ax, [word direction + 2]
+            add ax, bx
             sub ax, [wing_distance]
             sub ax, [wing_distance]
             sub ax, [wings_size]
@@ -909,7 +923,7 @@ proc move_player
             add ax, [boundry]
             cmp ax, 200
             jge qfunc
-            mov ax, [velocity_y]
+            mov ax, [word direction + 2]
             add [y_pos], ax
 
     qfunc: ;checks if touches the energy
@@ -1470,7 +1484,7 @@ proc collided_player ;funcion that called after the player is hit by something, 
         jmp return
 
     speed_boost:
-        inc [velocity_x]
+        inc [speed]
         jmp return
 
     points_boost:
@@ -1659,7 +1673,7 @@ Start:
             cmp [play], 0
             je GameOver
             call clear_player
-            call move_player
+            call move_playerV2
             cmp [paused], 0
             je check_time
             call move_astroids
@@ -1718,8 +1732,8 @@ Start:
                 mov [paused], 1
                 mov [health], 5
                 mov [points], 0
-                mov [velocity_x], 0
-                mov [velocity_y], 0
+                mov [word direction], 0
+                mov [word direction + 2], 0
                 mov [x_pos], 160
                 mov [y_pos], 100
                 mov [play], 1
