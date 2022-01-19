@@ -13,11 +13,25 @@ time_changes dw 0
 paused db 1
 
 play db 1
+menu_str db "WELCOME TO SELF_DESTRUCT!$" 
+menu2_str db "PRESS 'SPACE' TO START!$"
+len_menu_str db 0
+len_menu2_str db 0
 gameover_str db "Game Over$"
 len_game_over_str db 0
 restart_str db "Press 'r' to restart$"
 len_restart_str db 0
 pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
+
+;menu image
+filename db 'menu.bmp',0
+filehandle dw ?
+Header db 54 dup (0)
+Palette db 256*4 dup (0)
+ScrLine db 320 dup (0) ;320 deafult
+ErrorMsg db 'Error in opening image', 13, 10 ,'$'
+BMP_lines dw 200 ;200 deafult
+BMP_rows dw 320 ;320 deafult
 
 background_color db 00
 boundry dw 5
@@ -37,7 +51,6 @@ window_color db 16h
 
 last_key_pressed db 0
 timer_pressed db 8
-
 ;player stats
 x_pos dw 160
 y_pos dw 100
@@ -68,7 +81,7 @@ energy_pos_x dw 100
 energy_pos_y dw 150
 
 ;astroids
-astroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
+asteroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
 boosters dw 200, 170, 300,150, 8 dup(0,0)
 number_of_astroids dw 3
 number_of_boosters dw 2
@@ -417,7 +430,7 @@ proc draw_astroid
     push dx
     push si
     
-    mov si, offset astroids_array
+    mov si, offset asteroids_array
     
     mov cx, [number_of_astroids]
     cmp cx, 0
@@ -475,7 +488,7 @@ proc clear_astroid
     push dx
     push si
     
-    mov si, offset astroids_array
+    mov si, offset asteroids_array
     
     mov cx, [number_of_astroids]
     cmp cx, 0
@@ -697,7 +710,7 @@ endp
 
 
 
-proc move_playerV2
+proc move_player
     push ax
     push cx
 
@@ -965,7 +978,7 @@ proc move_astroids
     push dx
     push si
 
-    mov si, offset astroids_array
+    mov si, offset asteroids_array
 
     call clear_astroid
 
@@ -1156,7 +1169,7 @@ proc remove_astroid ;removes an astroid and sets the array correctly
 
 
     mov bx, [bp + 4]
-    mov si, offset astroids_array
+    mov si, offset asteroids_array
 
     xor cx, cx
     replace_astroid:
@@ -1253,7 +1266,7 @@ proc spawn_astroid ;spawn either an astroid or a boost.
         jg spawn_booster
 
     inc [number_of_astroids]
-    mov si, offset astroids_array
+    mov si, offset asteroids_array
 
     mov cx, [number_of_astroids]
     dec cx
@@ -1615,6 +1628,267 @@ proc kill_player
     ret
 endp
 
+proc OpenFile
+
+    ; Open file
+
+    mov ah, 3Dh
+    xor al, al
+    mov dx, offset filename
+    int 21h
+
+    jc openerror
+    mov [filehandle], ax
+    ret
+
+    openerror:
+    mov dx, offset ErrorMsg
+    mov ah, 9h
+    int 21h
+    ret
+endp
+
+proc ReadHeader
+
+    ; Read BMP file header, 54 bytes
+
+    mov ah,3fh
+    mov bx, [filehandle]
+    mov cx,54
+    mov dx,offset Header
+    int 21h
+    ret
+    endp ReadHeader
+    proc ReadPalette
+
+    ; Read BMP file color palette, 256 colors * 4 bytes (400h)
+
+    mov ah,3fh
+    mov cx,400h
+    mov dx,offset Palette
+    int 21h
+    ret
+endp
+
+proc CopyPal
+
+    ; Copy the colors palette to the video memory
+    ; The number of the first color should be sent to port 3C8h
+    ; The palette is sent to port 3C9h
+
+    mov si,offset Palette
+    mov cx,256
+    mov dx,3C8h
+    mov al,0
+
+    ; Copy starting color to port 3C8h
+
+    out dx,al
+
+    ; Copy palette itself to port 3C9h
+
+    inc dx
+    PalLoop:
+
+    ; Note: Colors in a BMP file are saved as BGR values rather than RGB.
+
+    mov al,[si+2] ; Get red value.
+    shr al,2 ; Max. is 255, but video palette maximal
+
+    ; value is 63. Therefore dividing by 4.
+
+    out dx,al ; Send it.
+    mov al,[si+1] ; Get green value.
+    shr al,2
+    out dx,al ; Send it.
+    mov al,[si] ; Get blue value.
+    shr al,2
+    out dx,al ; Send it.
+    add si,4 ; Point to next color.
+
+    ; (There is a null chr. after every color.)
+
+    loop PalLoop
+    ret
+endp
+
+proc CopyBitmap
+
+    ; BMP graphics are saved upside-down.
+    ; Read the graphic line by line (200 lines in VGA format),
+    ; displaying the lines from bottom to top.
+
+    mov ax, 0A000h
+    mov es, ax
+    mov cx,[BMP_lines] ;BMP_lines is how many lines the file is
+    PrintBMPLoop:
+    push cx
+
+    ; di = cx*320, point to the correct screen line
+
+    mov di,cx
+    shl cx,6
+    shl di,8
+    add di,cx
+
+    ; Read one line
+
+    mov ah,3fh
+    mov cx,[BMP_rows]
+    mov dx,offset ScrLine
+    int 21h
+
+    ; Copy one line into video memory
+
+    cld 
+
+    ; Clear direction flag, for movsb
+
+    mov cx,320
+    mov si,offset ScrLine
+    rep movsb 
+
+    ; Copy line to the screen
+    ;rep movsb is same as the following code:
+    ;mov es:di, ds:si
+    ;inc si
+    ;inc di
+    ;dec cx
+    ;loop until cx=0
+
+    pop cx
+    loop PrintBMPLoop
+    ret
+endp
+
+
+proc menu_img
+    ; Process BMP file
+    call OpenFile
+    call ReadHeader
+    call ReadPalette
+    call CopyPal
+    call CopyBitmap
+    ret
+endp
+
+
+proc menu
+    push ax
+    push bx
+    push dx
+
+    call menu_img
+
+    mov dl, 13h ;prints the menu txt
+    sub dl, [len_menu_str]
+    mov bh, 00h
+    mov dh, 05h
+    mov ah, 02h
+    mov al, 5
+    int 10h
+
+    mov dx, offset menu_str
+    mov ah, 9h
+    int 21h
+
+    mov dl, 13h ;prints the menu2 txt
+    sub dl, [len_menu2_str]
+    mov bh, 00h
+    mov dh, 15h
+    mov ah, 02h
+    int 10h
+
+    mov dx, offset menu2_str
+    mov ah, 9h
+    int 21h
+
+    wait_for_space:
+    mov ah, 0
+    int 16h
+    cmp al, " "
+    jne wait_for_space
+
+    call clear_screen
+
+    pop dx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc set_size ;set the unchanged sizes
+    push ax
+    push bx
+    push dx
+
+    mov bx, offset gameover_str
+    find_length_gameover:
+    cmp [byte bx], '$'
+    je set_length_gameover
+    inc bx
+    jmp find_length_gameover
+
+    set_length_gameover:
+    sub bx, offset gameover_str
+    mov ax, bx
+    mov dl, 2
+    div dl
+    mov [len_game_over_str], al
+    xor ah, ah
+
+    mov bx, offset restart_str
+    find_length_restart:
+    cmp [byte bx], '$'
+    je set_length_restart
+    inc bx
+    jmp find_length_restart
+
+    set_length_restart:
+    sub bx, offset restart_str
+    mov ax, bx
+    mov dl, 2
+    div dl
+    mov [len_restart_str], al
+    xor ah, ah
+
+    mov bx, offset menu_str
+    find_length_menu:
+    cmp [byte bx], '$'
+    je set_length_menu
+    inc bx
+    jmp find_length_menu
+
+    set_length_menu:
+    sub bx, offset menu_str
+    mov ax, bx
+    mov dl, 2
+    div dl
+    mov [len_menu_str], al
+    xor ah, ah
+
+    mov bx, offset menu2_str
+    find_length_menu2:
+    cmp [byte bx], '$'
+    je set_length_menu2
+    inc bx
+    jmp find_length_menu2
+
+    set_length_menu2:
+    sub bx, offset menu2_str
+    mov ax, bx
+    mov dl, 2
+    div dl
+    mov [len_menu2_str], al
+    xor ah, ah
+
+    pop dx
+    pop bx
+    pop ax
+    ret
+endp
+
+
 Start:
         mov ax, @data
         mov ds, ax
@@ -1623,47 +1897,21 @@ Start:
         mov es, ax
 
         startgame:
-
-        mov bx, offset gameover_str
-        find_length_gameover:
-        cmp [byte bx], '$'
-        je set_length_gameover
-        inc bx
-        jmp find_length_gameover
-
-        set_length_gameover:
-        sub bx, offset gameover_str
-        mov ax, bx
-        mov dl, 2
-        div dl
-        mov [len_game_over_str], al
-        xor ah, ah
-
-        mov bx, offset restart_str
-        find_length_restart:
-        cmp [byte bx], '$'
-        je set_length_restart
-        inc bx
-        jmp find_length_restart
-
-        set_length_restart:
-        sub bx, offset restart_str
-        mov ax, bx
-        mov dl, 2
-        div dl
-        mov [len_restart_str], al
-        xor ah, ah
+        call set_size
 
         call clear_screen
         mov bl, 0
 
+        push es
+        call menu
+        pop es
+
         call draw_space_ship
         call draw_energy
         call pause
-       
 
         check_time:
-            mov dl, [clock]
+            mov dl, [Clock]
             cmp dl, [Time_Aux]
             je check_time
             mov [Time_Aux], dl
@@ -1673,13 +1921,13 @@ Start:
             cmp [play], 0
             je GameOver
             call clear_player
-            call move_playerV2
+            call move_player
             cmp [paused], 0
             je check_time
             call move_astroids
             call draw_energy
 
-            inc [time_since_last_spawn]
+            inc [time_since_last_spawn] ;check ifneed to spawn an astroid
             mov ax, [time_since_last_spawn]
             cmp ax, [astroids_spawn_rate]
             jl dont_spawn_astroid
@@ -1697,7 +1945,7 @@ Start:
                 jmp startgame
 
             GameOver:
-            mov dl, 13h
+            mov dl, 13h ;prints the game over screen
             sub dl, [len_game_over_str]
             mov bh, 00h
             mov dh, 8h
@@ -1708,7 +1956,7 @@ Start:
             mov ah, 9h
             int 21h
 
-            mov dl, 13h
+            mov dl, 13h ;prints the restar screen
             sub dl, [len_restart_str]
             mov bh, 00h
             mov dh, 010h
@@ -1729,7 +1977,7 @@ Start:
             
             call quit
             restart:
-                mov [paused], 1
+                mov [paused], 1 ;restart all the variables
                 mov [health], 5
                 mov [points], 0
                 mov [word direction], 0
@@ -1742,7 +1990,7 @@ Start:
                 call draw_UI
                 jmp startgame_closer
 
-proc quit
+proc quit ;a debug function
     jmp Exit
     ret
 endp
