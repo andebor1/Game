@@ -50,7 +50,8 @@ wings_size dw 3
 window_color db 16h
 
 last_key_pressed db 0
-timer_pressed db 8
+timer_pressed db 100
+
 ;player stats
 x_pos dw 160
 y_pos dw 100
@@ -718,7 +719,7 @@ proc move_player
     int 16h
 
     jz dont_start_timer
-    mov [timer_pressed], 8
+    mov [timer_pressed], 10
 
     jmp move
 
@@ -744,7 +745,7 @@ proc move_player
     
 
     cmp al, 1bh ;'esc'
-    je pause_check
+    je pause_check_closer
     cmp [paused], 0
     jne dont_pasue_here
 
@@ -784,44 +785,35 @@ proc move_player
     je dush_closer
 
     qfunc_closer:
-    jmp qfunc
-
-    finish_closer:
-        cmp [word direction], 0
-        jl addoneX
-        je checkY
-        dec [word direction]
-        jmp checkY
-        addoneX:
-        inc [word direction]
-
-        checkY:
-        cmp [word direction + 2], 0
-        jl addoneY
-        je finish_helper
-        dec [word direction + 2]
-        jmp finish_helper
-        addoneY:
-        inc [word direction + 2]
-
-        finish_helper:
-        jmp finish_closer_closer
-    
-    pause_check:
-        call pause
-        jmp qfunc
+    jmp qfunc_closer_closer
 
     quit_closer:
         call quit
 
-    move_up_closer:
-        jmp move_up
-    move_down_closer:
-        jmp move_down
-    move_left_closer:
-        jmp move_left
-    move_right_closer:
-        jmp move_right
+    pause_check_closer:
+    jmp pause_check
+
+    finish_closer:
+        mov [word direction], 0
+        mov [word direction + 2], 0
+
+        finish_helper:
+        jmp finish_closer_closer
+
+        move_up_closer:
+            jmp move_up
+        move_down_closer:
+            jmp move_down
+        move_left_closer:
+            jmp move_left
+        move_right_closer:
+            jmp move_right 
+        dush_closer:
+        jmp dush   
+    
+    pause_check:
+        call pause
+        jmp qfunc
 
 
     move_up:
@@ -838,9 +830,6 @@ proc move_player
             sub [word direction + 2], 3
             sub [word direction + 2], bx
             jmp finish_closer_closer
-
-    dush_closer:
-        jmp dush
 
     move_down:
         mov ax, [word direction + 2]
@@ -872,6 +861,9 @@ proc move_player
 
     finish_closer_closer:
         jmp finish
+
+    qfunc_closer_closer:
+    jmp qfunc
 
     move_left:
         mov ax, [word direction]
@@ -1908,7 +1900,6 @@ Start:
 
         call draw_space_ship
         call draw_energy
-        call pause
 
         check_time:
             mov dl, [Clock]
