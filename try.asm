@@ -7,6 +7,7 @@ STACK 256
 DATASEG
 ;https://www.fountainware.com/EXPL/vga_color_palettes.htm color palette
 Clock equ es:6Ch
+NextRandom dw 0
 
 Time_Aux db 0
 time_changes dw 0
@@ -63,6 +64,25 @@ dush_speed dw 0
 health dw 5
 health_str db "005", "$"
 
+
+;indicators
+fire_time db 18
+fire_weight dw 15
+fire_height dw 10
+fire_x_pos dw 0
+fire_y_pos dw 0
+fire_colors db 00h, 29h, 2ah, 2bh, 2ch ;black, red, red-orange, orange, yellow
+fire_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1, 2, 3, 3
+                 db 0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 2
+                 db 0, 1, 1, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 2
+                 db 2, 4, 4, 4, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 2
+                 db 2, 4, 4, 4, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 2
+                 db 1, 2, 4, 4, 4, 4, 3, 3, 3, 4, 4, 4, 2, 4, 2
+                 db 0, 1, 2, 2, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 2
+                 db 0, 1, 2, 2, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2
+                 db 0, 0, 1, 2, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 2
+                 db 0, 0, 0, 1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 1
+
 ;energy
 energy_weight dw 7
 energy_height dw 10
@@ -93,7 +113,16 @@ astroid_size_y dw 10
 
 ;astroids colors
 astroid_color db 00, 1bh, 16h, 13h ;darker
-astroids_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(1), 3 dup(0)      ,0, 5 dup(2), 3 dup(3), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(3), 3 dup(0)      ,6 dup(3), 3 dup(1), 6 dup(3)      ,7 dup(3), 3 dup(1), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
+astroids_color_array db 5 dup(0), 5 dup(1), 5 dup(0)
+    db 4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      
+    db 2 dup(0), 7 dup(2), 3 dup(1), 3 dup(0)      
+    db 0, 5 dup(2), 3 dup(3), 4 dup(1), 2 dup(0)      
+    db 7 dup(2), 5 dup(3), 3 dup(0)      
+    db 6 dup(3), 3 dup(1), 6 dup(3)      
+    db 7 dup(3), 3 dup(1), 5 dup(3)      
+    db 0,0,2, 5 dup(3), 5 dup(2),0,0     
+    db 3 dup(0), 9 dup(2), 3 dup(0)      
+    db 4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
 boosters_colors db 00, 1bh, 16h, 13h, 37h ;darker, cyan
 boosters_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(4), 3 dup(0)      ,0, 5 dup(2), 3 dup(4), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(4), 3 dup(0)      ,6 dup(3), 3 dup(4), 6 dup(3)      ,7 dup(3), 3 dup(4), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
@@ -108,6 +137,23 @@ astroid_velocity_y dw 0
 
 		
 CODESEG
+
+;; returns pseudo random number of 2 bytes in ax. The seed is set and updated in NextRandom.
+proc prg
+    push dx
+    xor dx, dx
+
+    mov ax, [NextRandom]
+    mov dx, 25173
+    imul dx
+
+    add  ax, 13849
+    xor  ax, 62832
+    mov  [NextRandom], ax
+
+    pop dx
+    ret
+endp
 
 proc clear_screen ;enters graphic mode and set the background color
     mov ax, 13h ;320x200
@@ -707,6 +753,77 @@ proc clear_energy
     ret
 endp
 
+proc draw_fire
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+
+    mov si, offset fire_color_array
+    mov dx, [fire_y_pos]
+    fire_veticalV2:
+        mov cx, [fire_x_pos]
+    fire_horizontalV2:
+        mov bh, 0
+        mov bx, offset fire_colors
+        add bl, [byte si]
+        mov al, [bx]
+        mov ah, 0ch
+        int 10h
+        inc si
+        inc cx
+        mov ax, [fire_x_pos]
+        add ax, [fire_weight]
+        cmp cx, ax
+        jl fire_horizontalV2
+        mov ax, [fire_y_pos]
+        add ax, [fire_height]
+        inc dx
+        cmp dx, ax
+        jl fire_veticalV2
+
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc clear_fire
+    push ax
+    push bx
+    push cx
+    push dx
+
+    mov dx, [fire_y_pos]
+    CLfire_veticalV2:
+        mov cx, [fire_x_pos]
+    CLfire_horizontalV2:
+        mov bh, 0
+        mov bx, offset fire_colors
+        mov al, [background_color]
+        mov ah, 0ch
+        int 10h
+        inc cx
+        mov ax, [fire_x_pos]
+        add ax, [fire_weight]
+        cmp cx, ax
+        jl CLfire_horizontalV2
+        mov ax, [fire_y_pos]
+        add ax, [fire_height]
+        inc dx
+        cmp dx, ax
+        jl CLfire_veticalV2
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
 
 
 
@@ -933,7 +1050,7 @@ proc move_player
 
     qfunc: ;checks if touches the energy
         call draw_space_ship
-        mov ax, [energy_pos_x]
+        mov ax, [energy_pos_x] ;24
         add ax, [energy_weight]
         cmp [x_pos], ax
         jg no_energy
@@ -948,7 +1065,7 @@ proc move_player
         add ax, [wing_distance]
         add ax, [wing_distance]
         add ax, [wings_size]
-        cmp ax, [energy_pos_y]
+        cmp ax, [energy_pos_y] ;225
         jl no_energy
         mov ax, [energy_pos_y]
         add ax, [energy_height]
@@ -1240,22 +1357,15 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     cmp ax, [max_number_of_astroids]
     jge dont_spawn
 
-    mov cx, 13
-    xor bx, bx
-    xor dx, dx 
+    call prg
+    and ax, 0000000001111111b
+    add ax, 10h
+    mov dx, ax
 
-    RandLoop:
-        mov ax, [Clock]         ; read timer counter
-        mov ah, [byte cs:bx]    ; read one byte from memory
-        xor al, ah              ; xor memory and counter
-        and al, 00001111b       ; leave result between 0-15
-        mov ah, 0
-        add dx, ax
-        inc bx
-        loop RandLoop
-
-        cmp al, 13
-        jg spawn_booster
+    call prg
+    and ax, 0000000000001111b
+    cmp ax, 12
+    jge spawn_booster
 
     inc [number_of_astroids]
     mov si, offset asteroids_array
@@ -1469,14 +1579,9 @@ proc collided_player ;funcion that called after the player is hit by something, 
     jmp return
 
     boost:
-    xor bx, bx ;random boost
+    call prg
 
-    mov ax, [Clock]         ; read timer counter
-    mov ah, [byte cs:bx]    ; read one byte from memory
-    xor al, ah              ; xor memory and counter
-    and al, 00001111b       ; leave result between 0-15
-    mov ah, 0
-    inc bx
+    and ax, 0000000000001111b
 
     cmp ax, 9
     jg speed_boost
@@ -1490,6 +1595,13 @@ proc collided_player ;funcion that called after the player is hit by something, 
 
     speed_boost:
         inc [speed]
+        mov ax, [x_pos]
+        sub ax, 10
+        mov [fire_x_pos], ax
+        mov ax, [y_pos]
+        add ax, 7
+        mov [fire_y_pos], ax
+        mov [fire_time], 18
         jmp return
 
     points_boost:
@@ -1518,37 +1630,19 @@ proc collect_energy
     inc [points]
     call clear_energy
 
-    mov cx, 20
-    xor bx, bx
-    xor dx, dx 
+    call prg ;gets a 2 bytes random number
 
-    RandLoopEnergy1:
-        mov ax, [Clock]         ; read timer counter
-        mov ah, [byte cs:bx]    ; read one byte from memory
-        xor al, ah              ; xor memory and counter
-        and al, 00001111b       ; leave result between 0-15
-        mov ah, 0
-        add dx, ax
-        inc bx
-        loop RandLoopEnergy1
+    and ax, 0000000011111111b ;range 0 - 256
+    add ax, 10h               ;range 16 - 272
 
-    mov [energy_pos_x], dx
+    mov [energy_pos_x], ax
 
-    mov cx, 12
-    xor bx, bx
-    xor dx, dx 
+    call prg ;gets a 2 bytes random number
 
-    RandLoopEnergy2:
-        mov ax, [Clock]         ; read timer counter
-        mov ah, [byte cs:bx]    ; read one byte from memory
-        xor al, ah              ; xor memory and counter
-        and al, 00001111b       ; leave result between 0-15
-        mov ah, 0
-        add dx, ax
-        inc bx
-        loop RandLoopEnergy2
+    and ax, 0000000001111111b ;range 0 - 128
+    add ax, 10h               ;range 16 - 144
 
-    mov [energy_pos_y], dx
+    mov [energy_pos_y], ax
     call make_harder
 
 
@@ -1606,6 +1700,33 @@ proc make_harder ;called when collecting energy
     make_harder_return:
 
     pop dx
+    pop ax
+    ret
+endp
+
+proc check_indicators
+    push ax
+
+    cmp [fire_time], 1
+    je dont_draw_fire
+    jl check_indicators_ret
+
+    call clear_fire
+    mov ax, [x_pos]
+    sub ax, 20
+    mov [fire_x_pos], ax
+    mov ax, [y_pos]
+    mov [fire_y_pos], ax
+    call draw_fire
+    dec [fire_time]
+    jmp check_indicators_ret
+
+    dont_draw_fire:
+    call clear_fire
+    dec [fire_time]
+
+    check_indicators_ret:
+
     pop ax
     ret
 endp
@@ -1898,6 +2019,9 @@ Start:
         call menu
         pop es
 
+        xor dx, [Clock]
+        mov [NextRandom], dx
+
         call draw_space_ship
         call draw_energy
 
@@ -1917,6 +2041,7 @@ Start:
             je check_time
             call move_astroids
             call draw_energy
+            call check_indicators
 
             inc [time_since_last_spawn] ;check ifneed to spawn an astroid
             mov ax, [time_since_last_spawn]
