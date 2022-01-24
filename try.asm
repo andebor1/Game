@@ -43,11 +43,11 @@ points dw 00
 
 
 ;spaceship draw
-space_ship_size dw 6
+space_ship_size dw 5 ;6
 space_ship_color db 77h
 space_ship_animation_color db 2fh
-wing_distance dw 3
-wings_size dw 3
+wing_distance dw 2 ;3
+wings_size dw 3 ;3
 window_color db 16h
 
 last_key_pressed db 0
@@ -60,13 +60,12 @@ speed dw 1
 direction dw 0, 0
 max_velocity_x dw 5
 max_velocity_y dw 3
-dush_speed dw 0
 health dw 5
 health_str db "005", "$"
 
 
 ;indicators
-fire_time db 18
+fire_time db 0
 fire_weight dw 15
 fire_height dw 10
 fire_x_pos dw 0
@@ -82,6 +81,29 @@ fire_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1, 2, 3, 3
                  db 0, 1, 2, 2, 2, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2
                  db 0, 0, 1, 2, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 2
                  db 0, 0, 0, 1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 1
+
+boost_speed dw 5
+
+health_timer db 18
+health_weight dw 16
+health_height dw 13
+health_x_pos dw 0
+health_y_pos dw 0
+health_color db 00, 28h ;black, red
+health_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                   db 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0
+                   db 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0
+                   db 0, 1, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,1, 1, 0
+                   db 16 dup (1)
+                   db 16 dup(1)
+                   db 16 dup(1)
+                   db 0, 1, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,1, 1, 1
+                   db 0, 1, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,1, 1, 0
+                   db 0, 0, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,1, 0, 0
+                   db 0, 0, 0, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,0, 0, 0
+                   db 0, 0, 0, 0, 1, 1, 1, 1 ,1, 1, 1, 1, 0, 0, 0, 0
+                   db 0, 0, 0, 0, 0, 1, 1, 1 ,1, 1, 1, 0 ,0, 0, 0, 0
+
 
 ;energy
 energy_weight dw 7
@@ -754,78 +776,148 @@ proc clear_energy
 endp
 
 proc draw_fire
+    push [fire_height]
+    push [fire_weight]
+    push [fire_y_pos]
+    push [fire_x_pos]
+    push offset fire_color_array
+    push offset fire_colors
+
+    call draw_bytes
+
+    mov cx, 6
+    popfireloop:
+        pop ax
+        loop popfireloop
+    ret
+endp
+
+proc clear_fire
+    push [fire_height]
+    push [fire_weight]
+    push [fire_y_pos]
+    push [fire_x_pos]
+
+    call clear_bytes
+
+    mov cx, 4
+    popCLfireloop:
+        pop ax
+        loop popCLfireloop
+    ret
+endp
+
+proc draw_health
+    push [health_height]
+    push [health_weight]
+    push [health_y_pos]
+    push [health_x_pos]
+    push offset health_color_array
+    push offset health_color
+
+    call draw_bytes
+
+    mov cx, 6
+    pophealthloop:
+        pop ax
+        loop pophealthloop
+    ret
+endp
+
+proc clear_health
+    push [health_height]
+    push [health_weight]
+    push [health_y_pos]
+    push [health_x_pos]
+
+    call clear_bytes
+
+    mov cx, 4
+    popCLhealthloop:
+        pop ax
+        loop popCLhealthloop
+    ret
+endp
+
+
+proc draw_bytes ;gets: 1) colors offset, 2) bytes array offset, 3) x pos 4) y pos 5) weight 6) height
+    push bp
+    mov bp, sp
     push ax
     push bx
     push cx
     push dx
     push si
 
-    mov si, offset fire_color_array
-    mov dx, [fire_y_pos]
-    fire_veticalV2:
-        mov cx, [fire_x_pos]
-    fire_horizontalV2:
+    mov si, [bp + 6]
+    mov dx, [bp + 10]
+    bytes_veticalV2:
+        mov cx, [bp + 8]
+    bytes_horizontalV2:
         mov bh, 0
-        mov bx, offset fire_colors
+        mov bx, [bp + 4]
         add bl, [byte si]
         mov al, [bx]
         mov ah, 0ch
         int 10h
         inc si
         inc cx
-        mov ax, [fire_x_pos]
-        add ax, [fire_weight]
+        mov ax, [bp + 8]
+        add ax, [bp + 12]
         cmp cx, ax
-        jl fire_horizontalV2
-        mov ax, [fire_y_pos]
-        add ax, [fire_height]
+        jl bytes_horizontalV2
+        mov ax, [bp + 10]
+        add ax, [bp + 14]
         inc dx
         cmp dx, ax
-        jl fire_veticalV2
+        jl bytes_veticalV2
 
     pop si
     pop dx
     pop cx
     pop bx
     pop ax
+    pop bp
     ret
 endp
 
-proc clear_fire
+proc clear_bytes ;gets: 1) x pos 2) y pos 3) weight 4) height
+    push bp
+    mov bp, sp
     push ax
     push bx
     push cx
     push dx
+    push si
 
-    mov dx, [fire_y_pos]
-    CLfire_veticalV2:
-        mov cx, [fire_x_pos]
-    CLfire_horizontalV2:
+    mov dx, [bp + 6]
+    CLbytes_veticalV2:
+        mov cx, [bp + 4]
+    CLbytes_horizontalV2:
         mov bh, 0
-        mov bx, offset fire_colors
         mov al, [background_color]
         mov ah, 0ch
         int 10h
+        inc si
         inc cx
-        mov ax, [fire_x_pos]
-        add ax, [fire_weight]
+        mov ax, [bp + 4]
+        add ax, [bp + 8]
         cmp cx, ax
-        jl CLfire_horizontalV2
-        mov ax, [fire_y_pos]
-        add ax, [fire_height]
+        jl CLbytes_horizontalV2
+        mov ax, [bp + 6]
+        add ax, [bp + 10]
         inc dx
         cmp dx, ax
-        jl CLfire_veticalV2
+        jl CLbytes_veticalV2
 
+    pop si
     pop dx
     pop cx
     pop bx
     pop ax
+    pop bp
     ret
 endp
-
-
-
 
 
 proc move_player
@@ -898,9 +990,6 @@ proc move_player
     cmp al, 41h ;A            
     je move_left_closer
 
-    cmp al, 20h ;'space'
-    je dush_closer
-
     qfunc_closer:
     jmp qfunc_closer_closer
 
@@ -925,8 +1014,6 @@ proc move_player
             jmp move_left
         move_right_closer:
             jmp move_right 
-        dush_closer:
-        jmp dush   
     
     pause_check:
         call pause
@@ -996,11 +1083,6 @@ proc move_player
             sub [word direction], 3
             sub [word direction], bx
             jmp finish
-
-    dush: ;an optional feature, might remove it later
-        mov ax, [dush_speed]
-        mov [word direction], ax
-        jmp finish
 
     finish: ;checks the boundries of the x axis
         mov ax, [x_pos]
@@ -1547,7 +1629,7 @@ proc draw_UI ;draw the UI, points and health
     mov ah, 9h
     int 21h
 
-    draw_health:
+    draw_health_func:
     mov bh, 00h
     mov dh, 02h
     mov dl, 20h
@@ -1591,17 +1673,25 @@ proc collided_player ;funcion that called after the player is hit by something, 
     health_boost:
         inc [health]
         call update_health
+        call clear_health
+        mov [health_timer], 18
+        mov ax, [x_pos]
+        mov [health_x_pos], ax
+        mov ax, [y_pos]
+        mov [health_y_pos], ax
         jmp return
 
     speed_boost:
-        inc [speed]
+        call clear_fire
+        mov ax, [boost_speed]
+        add [speed], ax
         mov ax, [x_pos]
         sub ax, 10
         mov [fire_x_pos], ax
         mov ax, [y_pos]
         add ax, 7
         mov [fire_y_pos], ax
-        mov [fire_time], 18
+        mov [fire_time], 50
         jmp return
 
     points_boost:
@@ -1709,7 +1799,7 @@ proc check_indicators
 
     cmp [fire_time], 1
     je dont_draw_fire
-    jl check_indicators_ret
+    jl check_health
 
     call clear_fire
     mov ax, [x_pos]
@@ -1719,11 +1809,26 @@ proc check_indicators
     mov [fire_y_pos], ax
     call draw_fire
     dec [fire_time]
-    jmp check_indicators_ret
+    jmp check_health
 
     dont_draw_fire:
     call clear_fire
+    mov ax, [boost_speed]
+    sub [speed], ax
     dec [fire_time]
+
+    check_health:
+    cmp [health_timer], 1
+    je dont_draw_health
+    jl check_indicators_ret
+
+    call draw_health
+    dec [health_timer]
+    jmp check_indicators_ret
+
+    dont_draw_health:
+    call clear_health
+    dec [health_timer]
 
     check_indicators_ret:
 
@@ -2042,6 +2147,18 @@ Start:
             call move_astroids
             call draw_energy
             call check_indicators
+
+            push [health_height]
+            push [health_weight]
+            push [y_pos] 
+            push [x_pos]
+            push offset health_color_array
+            push offset health_color
+            ;call draw_bytes
+            mov cx, 6
+            poploop:
+                pop ax
+                loop poploop
 
             inc [time_since_last_spawn] ;check ifneed to spawn an astroid
             mov ax, [time_since_last_spawn]
