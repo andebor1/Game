@@ -84,7 +84,7 @@ fire_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1, 2, 3, 3
 
 boost_speed dw 5
 
-health_timer db 18
+health_timer db 0
 health_weight dw 16
 health_height dw 13
 health_x_pos dw 0
@@ -103,6 +103,13 @@ health_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                    db 0, 0, 0, 1, 1, 1, 1, 1 ,1, 1, 1, 1 ,1 ,0, 0, 0
                    db 0, 0, 0, 0, 1, 1, 1, 1 ,1, 1, 1, 1, 0, 0, 0, 0
                    db 0, 0, 0, 0, 0, 1, 1, 1 ,1, 1, 1, 0 ,0, 0, 0, 0
+shield_timer db 0
+shield_color db 37h
+shield_weight dw 5
+shield_height dw 20
+shield_height_now dw 20
+shield_x_pos dw 0
+shield_y_pos dw 0
 
 
 ;energy
@@ -753,7 +760,6 @@ proc clear_energy
         mov cx, [energy_pos_x]
     CLenergy_horizontalV2:
         mov bh, 0
-        mov bx, offset energy_color
         mov al, [background_color]
         mov ah, 0ch
         int 10h
@@ -774,6 +780,56 @@ proc clear_energy
     pop ax
     ret
 endp
+
+proc draw_shield
+    push ax
+    push bx
+    push cx
+    push dx
+
+    mov dx, [shield_y_pos]
+    shield_vertical:
+    mov cx, [shield_x_pos]
+    shield_horizontal:
+        mov bh, 0
+        mov al, [shield_color]
+        mov ah, 0ch
+        int 10h
+        inc cx
+        mov ax, [shield_x_pos]
+        add ax, [shield_weight]
+        cmp cx, ax
+        jl shield_horizontal
+        inc dx
+        mov ax, [shield_y_pos]
+        add ax, [shield_height_now]
+        cmp dx, ax
+        jl shield_vertical
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc clear_shield
+    push [shield_height]
+    push [shield_weight]
+    push [shield_y_pos]
+    push [shield_x_pos]
+
+    call clear_bytes
+
+    mov cx, 4
+    popshieldloop:
+        pop ax
+        loop popshieldloop
+
+    ret
+endp
+
+
 
 proc draw_fire
     push [fire_height]
@@ -1234,7 +1290,8 @@ proc move_astroids
     cmp [word si + 2], ax
     jl no_collision
 
-
+    cmp [shield_timer], 1
+    jge remove
     push 0
     call collided_player
     pop ax
@@ -1663,12 +1720,14 @@ proc collided_player ;funcion that called after the player is hit by something, 
     boost:
     call prg
 
-    and ax, 0000000000001111b
+    and ax, 0000000001111111b ;range 0 - 128
 
-    cmp ax, 9
+    cmp ax, 100
     jg speed_boost
-    cmp ax, 7
+    cmp ax, 80
     jg points_boost
+    cmp ax, 40
+    jg shield_boost
 
     health_boost:
         inc [health]
@@ -1692,6 +1751,13 @@ proc collided_player ;funcion that called after the player is hit by something, 
         add ax, 7
         mov [fire_y_pos], ax
         mov [fire_time], 50
+        jmp return
+
+    shield_boost:
+        call clear_shield
+        mov [shield_timer], 40
+        mov ax, [shield_height]
+        mov [shield_height_now], ax
         jmp return
 
     points_boost:
@@ -1820,15 +1886,46 @@ proc check_indicators
     check_health:
     cmp [health_timer], 1
     je dont_draw_health
-    jl check_indicators_ret
+    jl check_shield
 
     call draw_health
     dec [health_timer]
-    jmp check_indicators_ret
+    jmp check_shield
 
     dont_draw_health:
     call clear_health
     dec [health_timer]
+
+    check_shield:
+    cmp [shield_timer], 1
+    je dont_draw_shield
+    jl check_indicators_ret
+
+    call clear_shield
+    mov ax, [y_pos]
+    sub ax, [wing_distance]
+    sub ax, [wing_distance]
+    sub ax, [wings_size]
+    mov [shield_y_pos], ax
+    mov ax, [x_pos]
+    add ax, [space_ship_size]
+    add ax, [wing_distance]
+    add ax, [wings_size]
+    add ax, 5
+    mov [shield_x_pos], ax
+    call draw_shield
+    dec [shield_timer]
+    cmp [shield_timer], 15
+    jg check_indicators_ret
+    dec [shield_height_now]
+    jmp check_indicators_ret
+
+    dont_draw_shield:
+    call clear_shield
+    dec [shield_timer]
+    mov ax, [shield_height]
+    mov [shield_height_now], ax
+
 
     check_indicators_ret:
 
@@ -2147,18 +2244,6 @@ Start:
             call move_astroids
             call draw_energy
             call check_indicators
-
-            push [health_height]
-            push [health_weight]
-            push [y_pos] 
-            push [x_pos]
-            push offset health_color_array
-            push offset health_color
-            ;call draw_bytes
-            mov cx, 6
-            poploop:
-                pop ax
-                loop poploop
 
             inc [time_since_last_spawn] ;check ifneed to spawn an astroid
             mov ax, [time_since_last_spawn]
