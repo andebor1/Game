@@ -132,11 +132,11 @@ energy_pos_y dw 150
 
 ;astroids
 asteroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-boosters dw 200, 170, 300,150, 8 dup(0,0)
+powerup dw 200, 170, 300,150, 8 dup(0,0)
 number_of_astroids dw 3
-number_of_boosters dw 2
+number_of_powerups dw 2
 max_number_of_astroids dw 10
-max_number_of_boosters dw 10
+max_number_of_powerups dw 10
 astroid_size_x dw 15
 astroid_size_y dw 10
 
@@ -153,8 +153,8 @@ astroids_color_array db 5 dup(0), 5 dup(1), 5 dup(0)
     db 3 dup(0), 9 dup(2), 3 dup(0)      
     db 4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
-boosters_colors db 00, 1bh, 16h, 13h, 37h ;darker, cyan
-boosters_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(4), 3 dup(0)      ,0, 5 dup(2), 3 dup(4), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(4), 3 dup(0)      ,6 dup(3), 3 dup(4), 6 dup(3)      ,7 dup(3), 3 dup(4), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
+powerups_colors db 00, 1bh, 16h, 13h, 37h ;darker, cyan
+powerups_color_array db 5 dup(0), 5 dup(1), 5 dup(0)    ,4 dup(0), 3 dup(1), 5 dup(2), 3 dup(0)      ,2 dup(0), 7 dup(2), 3 dup(4), 3 dup(0)      ,0, 5 dup(2), 3 dup(4), 4 dup(1), 2 dup(0)      ,7 dup(2), 5 dup(4), 3 dup(0)      ,6 dup(3), 3 dup(4), 6 dup(3)      ,7 dup(3), 3 dup(4), 5 dup(3)      ,0,0,2, 5 dup(3), 5 dup(2),0,0     ,3 dup(0), 9 dup(2), 3 dup(0)      ,4 dup(0), 4 dup(2), 3 dup(1), 4 dup(0)
 
 ;astroids' velocities
 wave dw 5 ;for hardness functionality
@@ -605,21 +605,21 @@ proc clear_astroid
     ret
 endp
 
-proc draw_boosters
+proc draw_powerups
     push ax
     push bx
     push cx
     push dx
     push si
     
-    mov si, offset boosters
+    mov si, offset powerups
     
-    mov cx, [number_of_boosters]
+    mov cx, [number_of_powerups]
     cmp cx, 0
     jle dont_draw
     BSTdraw_next:
         push cx
-        mov bx, offset boosters_color_array
+        mov bx, offset powerups_color_array
         mov dx, [word si + 2]
     BSTvertical:
         mov cx, [word si]
@@ -628,7 +628,7 @@ proc draw_boosters
 
         mov al, [byte bx] ;select the color according to the array
         xor ah, ah
-        add ax, offset boosters_colors
+        add ax, offset powerups_colors
         mov bx, ax
         mov al, [byte bx] ;the right color
         mov bh, 0
@@ -663,16 +663,16 @@ proc draw_boosters
     ret
 endp
 
-proc clear_boosters
+proc clear_powerups
     push ax
     push bx
     push cx
     push dx
     push si
     
-    mov si, offset boosters
+    mov si, offset powerups
     
-    mov cx, [number_of_boosters]
+    mov cx, [number_of_powerups]
     cmp cx, 0
     jle BSTCLdont_draw
     BSTCLdraw_next:
@@ -1307,15 +1307,15 @@ proc move_astroids
 
     no_astroids:
 
-    move_boosters: ;;;;;;;;;;;;;;;;;;;;boosters
+    move_powerups: ;;;;;;;;;;;;;;;;;;;;powerups
 
-    mov si, offset boosters
+    mov si, offset powerups
 
-    call clear_boosters
+    call clear_powerups
 
     xor cx, cx
 
-    cmp [number_of_boosters], 0
+    cmp [number_of_powerups], 0
     jle BSTno_astroids_closer
     
     BSTnext_astroid: ;add the velocity and check if hits the boundries
@@ -1375,29 +1375,29 @@ proc move_astroids
     jl BSTno_collision
 
 
-    mov ax, offset boosters
+    mov ax, offset powerups
     sub si, ax
     mov ax, si
     mov dl, 4 ;every booster has the x and y, both are word, so 4 bytes
     div dl
     xor ah, ah
-    inc ax ;the first one is the same place as the boosters' offset
+    inc ax ;the first one is the same place as the powerups' offset
 
     push ax
     call collided_player
     pop ax
-    add si, offset boosters
+    add si, offset powerups
     jmp BSTremove
 
     BSTno_collision:
     add si, 4
     inc cx
-    cmp cx, [number_of_boosters]
+    cmp cx, [number_of_powerups]
     jl BSTnext_astroid_closer
 
 
     BSTno_astroids:
-    call draw_boosters
+    call draw_powerups
 
     pop si
     pop dx
@@ -1456,7 +1456,7 @@ proc remove_booster ;removes a booster and sets the array according
 
 
     mov bx, [bp + 4]
-    mov si, offset boosters
+    mov si, offset powerups
 
     xor cx, cx
     BSTreplace_astroid:
@@ -1472,10 +1472,10 @@ proc remove_booster ;removes a booster and sets the array according
         BSTreplace_next:
         add si, 4
         inc cx
-        cmp cx, [number_of_boosters]
+        cmp cx, [number_of_powerups]
         jl BSTreplace_astroid
 
-        dec [number_of_boosters]
+        dec [number_of_powerups]
 
         pop si
         pop cx
@@ -1524,10 +1524,10 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     jmp dont_spawn
 
     spawn_booster:
-    inc [number_of_boosters]
-    mov si, offset boosters
+    inc [number_of_powerups]
+    mov si, offset powerups
 
-    mov cx, [number_of_boosters]
+    mov cx, [number_of_powerups]
     dec cx
 
     BSTdeeper_into_the_memory: ;sets si to be in the first free place if the array
@@ -1915,7 +1915,8 @@ proc check_indicators
     mov [shield_x_pos], ax
     call draw_shield
     dec [shield_timer]
-    cmp [shield_timer], 15
+    mov ax, [shield_height]
+    cmp [shield_timer], al
     jg check_indicators_ret
     dec [shield_height_now]
     jmp check_indicators_ret
