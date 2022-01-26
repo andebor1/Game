@@ -25,7 +25,7 @@ len_restart_str db 0
 pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
 
 ;menu image
-filename db 'menu.bmp',0
+filename db 'menu.bmp', 0
 filehandle dw ?
 Header db 54 dup (0)
 Palette db 256*4 dup (0)
@@ -137,7 +137,7 @@ number_of_astroids dw 3
 number_of_powerups dw 2
 max_number_of_astroids dw 10
 max_number_of_powerups dw 10
-astroid_size_x dw 15
+asteroid_size_x dw 15
 astroid_size_y dw 10
 
 ;astroids colors
@@ -164,11 +164,10 @@ astroid_velocity_x dw 2
 astroid_velocity_y dw 0
 
 ;super astroids
-fire_asteroids_array dw 200, 20, 9 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-number_of_fire_astroids dw 1
-max_number_of_fire_astroids dw 10
-fire_astroid_weight dw 18
-fire_astroid_height dw 20
+fire_asteroids_array dw 200, 20, 9 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...number_of_fire_asteroids dw 1
+number_of_fire_asteroids dw 10
+fire_asteroids_weight dw 18
+fire_asteroids_height dw 20
 
 ;super astroids colors
 fire_astroid_colors db 00, 1bh, 16h, 29h, 2ah, 2ch ;black, dark grey, grey, red, orange, yellow
@@ -570,7 +569,7 @@ proc draw_astroid
 
         inc cx
         mov ax, [word si]
-        add ax, [astroid_size_x]
+        add ax, [asteroid_size_x]
         cmp cx, ax
         jl horizontal
 
@@ -618,7 +617,7 @@ proc clear_astroid
 
         inc cx
         mov ax, [word si]
-        add ax, [astroid_size_x]
+        add ax, [asteroid_size_x]
         cmp cx, ax
         jl CLhorizontal
 
@@ -647,7 +646,7 @@ proc draw_fire_astroids
     push si
 
     mov si, offset fire_asteroids_array
-    mov cx, [number_of_fire_astroids]
+    mov cx, [number_of_fire_asteroids]
 
     cmp cx, 0
     jle draw_fire_astroids_ret
@@ -658,8 +657,8 @@ proc draw_fire_astroids
         push cx
 
         add si, 4
-        push [fire_astroid_height]
-        push [fire_astroid_weight]
+        push [fire_asteroids_height]
+        push [fire_asteroids_weight]
         push [word si + 2]
         push [word si]
         push offset fire_astroids_color_array
@@ -689,7 +688,7 @@ proc clear_fire_astroids
     push si
 
     mov si, offset fire_asteroids_array
-    mov cx, [number_of_fire_astroids]
+    mov cx, [number_of_fire_asteroids]
 
     cmp cx, 0
     jle clear_fire_astroids_ret
@@ -700,8 +699,8 @@ proc clear_fire_astroids
         push cx
 
         add si, 4
-        push [fire_astroid_height]
-        push [fire_astroid_weight]
+        push [fire_asteroids_height]
+        push [fire_asteroids_weight]
         push [word si + 2]
         push [word si]
 
@@ -758,7 +757,7 @@ proc draw_powerups
 
         inc cx
         mov ax, [word si]
-        add ax, [astroid_size_x]
+        add ax, [asteroid_size_x]
         cmp cx, ax
         jl BSThorizontal
 
@@ -806,7 +805,7 @@ proc clear_powerups
 
         inc cx
         mov ax, [word si]
-        add ax, [astroid_size_x]
+        add ax, [asteroid_size_x]
         cmp cx, ax
         jl BSTCLhorizontal
 
@@ -1427,7 +1426,7 @@ proc move_astroids
     dont_remove: ;checks if collides the player
     push cx
     push [astroid_size_y]
-    push [astroid_size_x]
+    push [asteroid_size_x]
     push [word si + 2]
     push [word si]
 
@@ -1498,7 +1497,7 @@ proc move_astroids
     BSTdont_remove: ;check if the booster collides the player
     push cx
     push [astroid_size_y]
-    push [astroid_size_x]
+    push [asteroid_size_x]
     push [word si + 2]
     push [word si]
 
@@ -1537,7 +1536,7 @@ proc move_astroids
 
     xor cx, cx
 
-    cmp [number_of_fire_astroids], 0
+    cmp [number_of_fire_asteroids], 0
     jle no_fire_astroids_closer
     
     move_next_fire_astroid: ;adds the velocity and checks if hit the boundries
@@ -1549,7 +1548,7 @@ proc move_astroids
     cmp [word si], 0
     jle fire_remove
     mov ax, 200
-    sub ax, [fire_astroid_height]
+    sub ax, [fire_asteroids_height]
     cmp [word si + 2], ax
     jl dont_remove_fire
 
@@ -1567,8 +1566,8 @@ proc move_astroids
 
     dont_remove_fire: ;checks if collides the player
     push cx
-    push [fire_astroid_height]
-    push [fire_astroid_weight]
+    push [fire_asteroids_height]
+    push [fire_asteroids_weight]
     push [word si + 2]
     push [word si]
 
@@ -1593,7 +1592,7 @@ proc move_astroids
     no_collision_fire:
     add si, 4
     inc cx
-    cmp cx, [number_of_fire_astroids]
+    cmp cx, [number_of_fire_asteroids]
     jl next_fire_astroid_closer
 
     call draw_fire_astroids
@@ -1713,10 +1712,10 @@ proc remove_fire_astroid ;removes a fire astroid and sets the array correctly
         replace_next_fire:
         add si, 4
         inc cx
-        cmp cx, [number_of_fire_astroids]
+        cmp cx, [number_of_fire_asteroids]
         jl replace_fire_astroid
 
-        dec [number_of_fire_astroids]
+        dec [number_of_fire_asteroids]
 
         pop si
         pop cx
@@ -1758,7 +1757,7 @@ proc spawn_astroid ;spawn either an astroid or a boost.
         loop deeper_into_the_memory
     
     mov [word si], 320
-    mov ax, [astroid_size_x]
+    mov ax, [asteroid_size_x]
     sub [word si], ax
     mov [word si + 2], dx
 
@@ -1776,11 +1775,42 @@ proc spawn_astroid ;spawn either an astroid or a boost.
         loop BSTdeeper_into_the_memory
     
     mov [word si], 320
-    mov ax, [astroid_size_x]
+    mov ax, [asteroid_size_x]
     sub [word si], ax
     mov [word si + 2], dx
     
     dont_spawn:
+
+    cmp [points], 10
+    jl dont_spawn_fire
+
+    mov ax, [number_of_fire_asteroids]
+    cmp ax, [number_of_fire_asteroids]
+    jge dont_spawn_fire
+
+    call prg
+    and ax, 0000000001111111b
+    add ax, 180
+
+    mov dx, ax
+
+    mov si, offset fire_asteroids_array
+    mov cx, [number_of_fire_asteroids]
+    dec cx
+
+    deeper_into_the_memory_fire: ;sets si to be in the first free place of the array
+        add si, 4
+        loop deeper_into_the_memory_fire
+    
+    mov [word si], dx
+    mov ax, [fire_asteroids_weight]
+    sub [word si], ax
+    mov [word si + 2], 200
+    mov ax, [fire_asteroids_height]
+    sub [word si + 2], ax
+
+    dont_spawn_fire:
+
 
     pop si
     pop dx
