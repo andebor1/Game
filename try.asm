@@ -132,7 +132,7 @@ energy_pos_y dw 150
 
 ;astroids
 asteroids_array dw 50, 77, 58, 158, 200, 50, 7 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
-powerup dw 200, 170, 300,150, 8 dup(0,0)
+powerups dw 200, 170, 300,150, 8 dup(0,0)
 number_of_astroids dw 3
 number_of_powerups dw 2
 max_number_of_astroids dw 10
@@ -162,6 +162,42 @@ astroids_spawn_rate dw 50
 time_since_last_spawn dw 0
 astroid_velocity_x dw 2
 astroid_velocity_y dw 0
+
+;super astroids
+fire_asteroids_array dw 200, 20, 9 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...
+number_of_fire_astroids dw 1
+max_number_of_fire_astroids dw 10
+fire_astroid_weight dw 18
+fire_astroid_height dw 20
+
+;super astroids colors
+fire_astroid_colors db 00, 1bh, 16h, 29h, 2ah, 2ch ;black, dark grey, grey, red, orange, yellow
+fire_astroids_color_array   db 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 4, 0, 0, 5, 3, 4, 4, 0 ;1
+                            db 0, 0, 0, 0, 0, 0, 0, 3, 4, 4, 0, 0, 5, 3, 3, 0, 0, 3 ;2
+                            db 0, 0, 0, 0, 0, 0, 3, 3, 4, 0, 0, 5, 3, 3, 0, 0, 5, 3 ;3
+                            db 0, 0, 0, 0, 0, 3, 3, 4, 0, 5, 3, 3, 3, 0, 0, 4, 3, 3 ;4
+                            db 0, 0, 0, 0, 3, 3, 4, 0, 3, 3, 3, 4, 0, 4, 4, 4, 0, 0 ;5
+                            db 0, 0, 0, 3, 3, 4, 3, 3, 5, 0, 4, 0, 4, 4, 0, 0, 0, 5 ;6
+                            db 0, 0, 0, 3, 4, 4, 5, 5, 4, 4, 0, 4, 4, 5, 0, 5, 5, 5 ;7
+                            db 0, 0, 0, 4, 4, 5, 5, 4, 4, 0, 4, 5, 0, 5, 5, 5, 3, 3 ;8
+                            db 0, 0, 0, 4, 5, 2, 2, 4, 5, 5, 4, 0, 5, 5, 4, 4, 3, 0 ;9
+                            db 0, 0, 0, 5, 2, 2, 2, 5, 5, 4, 5, 5, 4, 4, 0, 0, 0, 3 ;10
+                            db 0, 0, 2, 2, 2, 3, 5, 2, 4, 5, 5, 0, 4, 0, 5, 5, 3, 3 ;11
+                            db 0, 2, 2, 2, 1, 1, 2, 4, 5, 2, 4, 4, 5, 5, 0, 3, 3, 4 ;12
+                            db 0, 2, 2, 2, 1, 2, 2, 2, 2, 4, 4, 5, 0, 4, 3, 3, 0, 0 ;13
+                            db 0, 2, 2, 1, 1, 2, 2, 2, 4, 5, 4, 4, 4, 0, 0, 0, 0, 0 ;14
+                            db 2, 2, 2, 1, 2, 2, 2, 1, 1, 5, 4, 0, 0, 0, 0, 0, 0, 0 ;15
+                            db 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0 ;16
+                            db 2, 2, 2, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;17
+                            db 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;18
+                            db 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;19
+                            db 18 dup(0)                                            ;20
+
+;fire astroids' velocities
+fire_astroids_spawn_rate dw 50
+time_since_last_spawn_fireA dw 0
+fire_astroid_velocity_x dw 2
+fire_astroid_velocity_y dw 1
 
 
 		
@@ -605,6 +641,88 @@ proc clear_astroid
     ret
 endp
 
+proc draw_fire_astroids
+    push ax
+    push cx
+    push si
+
+    mov si, offset fire_asteroids_array
+    mov cx, [number_of_fire_astroids]
+
+    cmp cx, 0
+    jle draw_fire_astroids_ret
+
+    sub si, 4
+
+    next_fire_astroid:
+        push cx
+
+        add si, 4
+        push [fire_astroid_height]
+        push [fire_astroid_weight]
+        push [word si + 2]
+        push [word si]
+        push offset fire_astroids_color_array
+        push offset fire_astroid_colors
+
+        call draw_bytes
+
+        mov cx, 6
+        popfire_astroids:
+        pop ax
+        loop popfire_astroids
+
+        pop cx
+        loop next_fire_astroid
+
+    draw_fire_astroids_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
+proc clear_fire_astroids
+    push ax
+    push cx
+    push si
+
+    mov si, offset fire_asteroids_array
+    mov cx, [number_of_fire_astroids]
+
+    cmp cx, 0
+    jle clear_fire_astroids_ret
+
+    sub si, 4
+
+    CLnext_fire_astroid:
+        push cx
+
+        add si, 4
+        push [fire_astroid_height]
+        push [fire_astroid_weight]
+        push [word si + 2]
+        push [word si]
+
+        call clear_bytes
+
+        mov cx, 4
+        CLpopfire_astroids:
+        pop ax
+        loop CLpopfire_astroids
+
+        pop cx
+        loop CLnext_fire_astroid
+
+    clear_fire_astroids_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
 proc draw_powerups
     push ax
     push bx
@@ -616,7 +734,7 @@ proc draw_powerups
     
     mov cx, [number_of_powerups]
     cmp cx, 0
-    jle dont_draw
+    jle BSTdont_draw
     BSTdraw_next:
         push cx
         mov bx, offset powerups_color_array
@@ -975,6 +1093,53 @@ proc clear_bytes ;gets: 1) x pos 2) y pos 3) weight 4) height
     ret
 endp
 
+proc hit_player ;gets: 1) x position, 2) y position, 3) weight, 4) height returns in al: 0 if no hit, 1 if there is a hit
+    push bp
+    mov bp, sp
+    push dx
+
+    mov ax, [x_pos]
+    add ax, [space_ship_size]
+    add ax, [wing_distance]
+    add ax, [wings_size]
+    cmp ax, [word bp + 4]
+    jl no_player_col
+
+    mov ax, [x_pos]
+    mov dx, [word bp + 4]
+    add dx, [word bp + 8]
+    cmp ax, dx
+    jg no_player_col
+
+    mov ax, [y_pos]
+    sub ax, [wing_distance]
+    sub ax, [wing_distance]
+    sub ax, [wings_size]
+    mov dx, [word bp + 6]
+    add dx, [word bp + 10]
+    cmp ax, dx
+    jg no_player_col
+
+    mov ax, [y_pos]
+    add ax, [space_ship_size]
+    add ax, [wing_distance]
+    add ax, [wing_distance]
+    add ax, [wings_size]
+    cmp ax, [word bp + 6]
+    jl no_player_col
+
+    mov al, 1
+    jmp hit_player_ret
+
+    no_player_col:
+    mov al, 0
+
+    hit_player_ret:
+
+    pop dx
+    pop bp
+    ret
+endp
 
 proc move_player
     push ax
@@ -1260,35 +1425,22 @@ proc move_astroids
         jmp next_astroid
 
     dont_remove: ;checks if collides the player
-    mov ax, [x_pos]
-    add ax, [space_ship_size]
-    add ax, [wing_distance]
-    add ax, [wings_size]
-    cmp [word si], ax ;checks if the x position is greater then the player's
-    jg no_collision
+    push cx
+    push [astroid_size_y]
+    push [astroid_size_x]
+    push [word si + 2]
+    push [word si]
 
-    mov ax, [x_pos]
-    sub ax, [wing_distance]
-    sub ax, [wings_size]
-    sub ax, [astroid_size_x]
-    cmp [word si], ax ;checks if the x position is lower then the player's
-    jl no_collision
+    call hit_player
 
-    mov ax, [y_pos]
-    add ax, [space_ship_size]
-    add ax, [wing_distance]
-    add ax, [wing_distance]
-    add ax, [wings_size]
-    cmp [word si + 2], ax
-    jg no_collision
+    mov cx, 4
+    popastroidcol:
+        pop dx
+        loop popastroidcol
+    pop cx
 
-    mov ax, [y_pos]
-    sub ax, [wing_distance]
-    sub ax, [wing_distance]
-    sub ax, [wings_size]
-    sub ax, [astroid_size_y]
-    cmp [word si + 2], ax
-    jl no_collision
+    cmp al, 0
+    je no_collision
 
     cmp [shield_timer], 1
     jge remove
@@ -1344,49 +1496,26 @@ proc move_astroids
         jmp BSTnext_astroid
 
     BSTdont_remove: ;check if the booster collides the player
-    mov ax, [x_pos] 
-    add ax, [space_ship_size]
-    add ax, [wing_distance]
-    add ax, [wings_size]
-    cmp [word si], ax ;checks if the x position is greater then the player's
-    jg BSTno_collision
+    push cx
+    push [astroid_size_y]
+    push [astroid_size_x]
+    push [word si + 2]
+    push [word si]
 
-    mov ax, [x_pos]
-    sub ax, [wing_distance]
-    sub ax, [wings_size]
-    sub ax, [astroid_size_x]
-    cmp [word si], ax ;checks if the x position is lower then the player's
-    jl BSTno_collision
+    call hit_player ;returns al = 1 if hit player
 
-    mov ax, [y_pos]
-    add ax, [space_ship_size]
-    add ax, [wing_distance]
-    add ax, [wing_distance]
-    add ax, [wings_size]
-    cmp [word si + 2], ax
-    jg BSTno_collision
+    mov cx, 4
+    popBSTastroidcol:
+        pop dx
+        loop popBSTastroidcol
+    pop cx
 
-    mov ax, [y_pos]
-    sub ax, [wing_distance]
-    sub ax, [wing_distance]
-    sub ax, [wings_size]
-    sub ax, [astroid_size_y]
-    cmp [word si + 2], ax
-    jl BSTno_collision
+    cmp al, 0
+    je BSTno_collision
 
-
-    mov ax, offset powerups
-    sub si, ax
-    mov ax, si
-    mov dl, 4 ;every booster has the x and y, both are word, so 4 bytes
-    div dl
-    xor ah, ah
-    inc ax ;the first one is the same place as the powerups' offset
-
-    push ax
+    push 1
     call collided_player
     pop ax
-    add si, offset powerups
     jmp BSTremove
 
     BSTno_collision:
@@ -1398,6 +1527,79 @@ proc move_astroids
 
     BSTno_astroids:
     call draw_powerups
+
+    cmp [points], 50
+    ;jl no_fire_astroids_closer
+
+    mov si, offset fire_asteroids_array
+
+    call clear_fire_astroids
+
+    xor cx, cx
+
+    cmp [number_of_fire_astroids], 0
+    jle no_fire_astroids_closer
+    
+    move_next_fire_astroid: ;adds the velocity and checks if hit the boundries
+
+    mov ax, [word fire_astroid_velocity_x]
+    sub [word si], ax
+    mov ax, [word fire_astroid_velocity_y]
+    add [word si + 2], ax
+    cmp [word si], 0
+    jle fire_remove
+    mov ax, 200
+    sub ax, [fire_astroid_height]
+    cmp [word si + 2], ax
+    jl dont_remove_fire
+
+    fire_remove:
+    push si
+    call remove_fire_astroid
+    pop si
+    jmp no_collision_fire
+
+    no_fire_astroids_closer:
+        jmp no_fire_astroids
+
+    next_fire_astroid_closer:
+        jmp move_next_fire_astroid
+
+    dont_remove_fire: ;checks if collides the player
+    push cx
+    push [fire_astroid_height]
+    push [fire_astroid_weight]
+    push [word si + 2]
+    push [word si]
+
+    call hit_player
+
+    mov cx, 4
+    popfireastroidcol:
+        pop dx
+        loop popfireastroidcol
+    pop cx
+
+    cmp al, 0
+    je no_collision_fire
+
+    cmp [shield_timer], 1
+    jge fire_remove
+    push 2
+    call collided_player
+    pop ax
+    jmp fire_remove
+
+    no_collision_fire:
+    add si, 4
+    inc cx
+    cmp cx, [number_of_fire_astroids]
+    jl next_fire_astroid_closer
+
+    call draw_fire_astroids
+
+    no_fire_astroids:
+
 
     pop si
     pop dx
@@ -1476,6 +1678,45 @@ proc remove_booster ;removes a booster and sets the array according
         jl BSTreplace_astroid
 
         dec [number_of_powerups]
+
+        pop si
+        pop cx
+        pop bx
+        pop ax
+        pop bp
+        ret
+endp
+
+proc remove_fire_astroid ;removes a fire astroid and sets the array correctly
+    push bp
+    mov bp, sp
+    push ax
+    push bx
+    push cx
+    push si
+
+
+    mov bx, [bp + 4]
+    mov si, offset fire_asteroids_array
+
+    xor cx, cx
+    replace_fire_astroid:
+        cmp si, bx
+        jle replace_next_fire
+
+        mov ax, [word si]
+        mov [word si - 4], ax
+
+        mov ax, [word si + 2]
+        mov [word si - 2], ax
+
+        replace_next_fire:
+        add si, 4
+        inc cx
+        cmp cx, [number_of_fire_astroids]
+        jl replace_fire_astroid
+
+        dec [number_of_fire_astroids]
 
         pop si
         pop cx
@@ -1708,12 +1949,21 @@ proc collided_player ;funcion that called after the player is hit by something, 
     push ax
 
     mov ax, [word bp + 4]
+    cmp ax, 2
+    je fire_damage
     cmp ax, 0
-    jne boost
+    jg boost
     
     cmp [health], 1
-    jle Die
+    jle Die_closer
     sub [health], 1
+    call update_health
+    jmp return
+
+    fire_damage:
+    cmp [health], 2
+    jle Die_closer
+    sub [health], 2
     call update_health
     jmp return
 
@@ -1752,6 +2002,9 @@ proc collided_player ;funcion that called after the player is hit by something, 
         mov [fire_y_pos], ax
         mov [fire_time], 50
         jmp return
+
+    Die_closer:
+    jmp Die
 
     shield_boost:
         call clear_shield
@@ -1880,7 +2133,7 @@ proc check_indicators
     dont_draw_fire:
     call clear_fire
     mov ax, [boost_speed]
-    sub [speed], ax
+    mov [speed], 1
     dec [fire_time]
 
     check_health:
@@ -2227,6 +2480,7 @@ Start:
 
         call draw_space_ship
         call draw_energy
+        call draw_fire_astroids
 
         check_time:
             mov dl, [Clock]
