@@ -10,7 +10,6 @@ Clock equ es:6Ch
 NextRandom dw 0
 
 Time_Aux db 0
-time_changes dw 0
 paused db 1
 
 play db 1
@@ -38,7 +37,7 @@ background_color db 00
 boundry dw 5
 
 ;points
-points_str db "000", "$"
+points_str db "000000", 4, "$"
 points dw 00
 
 
@@ -61,7 +60,7 @@ direction dw 0, 0
 max_velocity_x dw 5
 max_velocity_y dw 3
 health dw 5
-health_str db "005", "$"
+health_str db "005", 3, "$"
 
 
 ;indicators
@@ -166,6 +165,7 @@ astroid_velocity_y dw 0
 ;super astroids
 fire_asteroids_array dw 200, 20, 9 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...number_of_fire_asteroids dw 1
 number_of_fire_asteroids dw 10
+max_number_of_fire_astroid dw 10
 fire_asteroids_weight dw 18
 fire_asteroids_height dw 20
 
@@ -195,8 +195,8 @@ fire_astroids_color_array   db 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 4, 0, 0, 5, 3, 4, 4
 ;fire astroids' velocities
 fire_astroids_spawn_rate dw 50
 time_since_last_spawn_fireA dw 0
-fire_astroid_velocity_x dw 2
-fire_astroid_velocity_y dw 1
+fire_astroid_velocity_x dw 3
+fire_astroid_velocity_y dw 5
 
 
 		
@@ -313,7 +313,8 @@ proc draw_space_ship
     push cx
     push dx
 
-    mov ax, [time_changes] ;change the color of the animation
+    mov al, [Time_Aux] ;change the color of the animation
+    xor ah, ah
     mov dl, 20
     div dl
     cmp ah, 0
@@ -1781,22 +1782,23 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     
     dont_spawn:
 
-    cmp [points], 10
+    cmp [points], 50
     jl dont_spawn_fire
 
     mov ax, [number_of_fire_asteroids]
-    cmp ax, [number_of_fire_asteroids]
+    cmp ax, [max_number_of_fire_astroid]
     jge dont_spawn_fire
 
     call prg
-    and ax, 0000000001111111b
-    add ax, 180
+    and ax, 0000000011111111b
+    add ax, 50 ;range 50 - 306
 
     mov dx, ax
 
+    inc [number_of_fire_asteroids]
     mov si, offset fire_asteroids_array
+    sub si, 4
     mov cx, [number_of_fire_asteroids]
-    dec cx
 
     deeper_into_the_memory_fire: ;sets si to be in the first free place of the array
         add si, 4
@@ -1805,9 +1807,9 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     mov [word si], dx
     mov ax, [fire_asteroids_weight]
     sub [word si], ax
-    mov [word si + 2], 200
     mov ax, [fire_asteroids_height]
-    sub [word si + 2], ax
+    mov [word si + 2], ax
+    add [word si + 2], 5
 
     dont_spawn_fire:
 
@@ -1876,8 +1878,9 @@ proc update_health ;convert the health variable to string - need to be called wh
     mov bx, offset health_str
     
     gettoH$: ;set the bx in the right place
+        mov [byte bx], 0
         inc bx
-        cmp [byte bx], '$'
+        cmp [byte bx], 3
         jne gettoH$
     dec bx
 
@@ -1913,9 +1916,9 @@ proc upadate_points ;convert the points from the number object to the string, no
     mov bx, offset points_str
     
     getto$: ;set the bx in the right place
-        mov [byte bx], '0'
+        mov [byte bx], 0
         inc bx
-        cmp [byte bx], '$'
+        cmp [byte bx], 4
         jne getto$
     dec bx
 
@@ -2511,13 +2514,13 @@ Start:
         call draw_space_ship
         call draw_energy
         call draw_fire_astroids
+        call update_health
 
         check_time:
             mov dl, [Clock]
             cmp dl, [Time_Aux]
             je check_time
             mov [Time_Aux], dl
-            inc [time_changes]
         
         cycle:
             cmp [play], 0
@@ -2588,7 +2591,6 @@ Start:
                 mov [x_pos], 160
                 mov [y_pos], 100
                 mov [play], 1
-                call update_health
                 call upadate_points
                 call draw_UI
                 jmp startgame_closer
