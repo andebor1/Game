@@ -22,6 +22,13 @@ len_game_over_str db 0
 restart_str db "Press 'r' to restart$"
 len_restart_str db 0
 pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
+music_str db "D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1    C1A1C1C1     C1A1C1C1   A1C1F1E1D1D1   D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1   F1 F1 F1F1    F1 F1 F1F1   G1D1E1F1G1G1G1 $"
+music_table dw 110, 123, 131, 147, 165, 175, 196
+music_len dw 66
+music_speed db 10
+music_break_len db 1
+nt db 0
+mp dw 0
 
 ;menu image
 filename db 'menu.bmp', 0
@@ -162,9 +169,9 @@ time_since_last_spawn dw 0
 astroid_velocity_x dw 2
 astroid_velocity_y dw 0
 
-;super astroids
-fire_asteroids_array dw 200, 20, 9 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...number_of_fire_asteroids dw 1
-number_of_fire_asteroids dw 10
+;fire astroids
+fire_asteroids_array dw 10 dup(0, 0)     ;x1,y1,x2,y2,x3,y3...number_of_fire_asteroids dw 1
+number_of_fire_asteroids dw 0
 max_number_of_fire_astroid dw 10
 fire_asteroids_weight dw 18
 fire_asteroids_height dw 20
@@ -1312,17 +1319,27 @@ proc move_player
         sub ax, [wing_distance]
         sub ax, [wings_size]
         cmp ax, [boundry]
-        jle change_y
+        jle add_X_pos
         add ax, [space_ship_size]
         add ax, [wing_distance]
         add ax, [wing_distance]
         add ax, [wings_size]
         add ax, [wings_size]
+        sub ax, bx
+        sub ax, bx
         add ax, [boundry]
         cmp ax, 320
-        jge change_y
+        jge sub_x_pos
         mov ax, [word direction]
         add [x_pos], ax
+        jmp change_y
+
+        add_X_pos:
+        inc [x_pos]
+        jmp change_y
+
+        sub_x_pos:
+        dec [x_pos]
 
         change_y: ;checks the boundries of the y axis
             mov ax, [y_pos]
@@ -1333,47 +1350,45 @@ proc move_player
             sub ax, [wings_size]
             sub ax, [wings_size]
             cmp ax, [boundry]
-            jle qfunc
+            jle add_y_pos
             add ax, [space_ship_size]
-            xor cx, cx
-            add cx, 4
+            mov cx, 4
             add_wing_distance:
                 add ax, [wing_distance]
                 loop add_wing_distance
-            xor cx, cx
-            add cx, 4
+            mov cx, 4
             add_wing_size:
                 add ax, [wings_size]
                 loop add_wing_size
+            sub ax, bx
+            sub ax, bx
             add ax, [boundry]
             cmp ax, 200
-            jge qfunc
+            jge sub_y_pos
             mov ax, [word direction + 2]
             add [y_pos], ax
+            jmp qfunc
+
+        add_y_pos:
+        inc [y_pos]
+        jmp qfunc
+
+        sub_y_pos:
+        dec [y_pos]
 
     qfunc: ;checks if touches the energy
         call draw_space_ship
-        mov ax, [energy_pos_x] ;24
-        add ax, [energy_weight]
-        cmp [x_pos], ax
-        jg no_energy
-        mov ax, [x_pos]
-        add ax, [space_ship_size]
-        add ax, [wing_distance]
-        add ax, [wings_size]
-        cmp ax, [energy_pos_x]
-        jl no_energy
-        mov ax, [y_pos]
-        add ax, [space_ship_size]
-        add ax, [wing_distance]
-        add ax, [wing_distance]
-        add ax, [wings_size]
-        cmp ax, [energy_pos_y] ;225
-        jl no_energy
-        mov ax, [energy_pos_y]
-        add ax, [energy_height]
-        cmp [y_pos], ax
-        jg no_energy
+        push [energy_height]
+        push [energy_weight]
+        push [energy_pos_y]
+        push [energy_pos_x]
+        
+        call hit_player
+
+        add sp, 8
+        
+        cmp al, 0
+        je no_energy
         call collect_energy
 
         no_energy:
@@ -2057,6 +2072,8 @@ proc collided_player ;funcion that called after the player is hit by something, 
     ret
 
     Die:
+        mov [health], 0
+        call update_health
         call kill_player
     pop ax
     pop bp
@@ -2484,9 +2501,116 @@ proc set_size ;set the unchanged sizes
     mov [len_menu2_str], al
     xor ah, ah
 
+    mov bx, offset music_str
+    find_length_music:
+    cmp [byte bx], '$'
+    je set_length_music
+    inc bx
+    jmp find_length_music
+
+    set_length_music:
+    sub bx, offset music_str
+    sub bx, 4
+    mov [music_len], bx
+
     pop dx
     pop bx
     pop ax
+    ret
+endp
+
+Proc open_speaker
+    in al, 61h
+    or al, 00000011b
+    out 61h, al
+    ret
+endp
+
+proc close_speaker
+    in al, 61h
+    and al, 11111100b
+    out 61h, al
+    ret
+endp
+
+proc make_sound ;gets a frequency and tell the computer to make this sound
+    push bp
+    mov bp, sp
+
+    mov al, 0B6h
+    out 43h, al
+
+    mov ax, 34dch
+    mov dx, 0012h ;the constant 1193180
+    div [word bp + 4]
+
+    out 42h, al ; Sending lower byte
+    xchg al, ah
+    out 42h, al ; Sending upper byte
+
+    pop bp
+    ret
+endp
+
+proc play_music
+    mov bx, offset music_str
+    add bx, [mp]
+    mov al, [byte bx]
+    cmp al, " "
+    jne play_normal
+    cmp [nt], 0
+    jg dont_close_note
+    call close_speaker
+    dont_close_note:
+    mov al, [music_break_len]
+    cmp [nt], al
+    jl continue_break
+    mov [nt], 0
+    inc [mp]
+    call open_speaker
+    jmp play_music
+    continue_break:
+    inc [nt]
+    jmp play_music_ret
+    play_normal:
+    xor ah, ah
+    sub al, 65
+    mov si, ax
+    add si, ax
+    add si, offset music_table
+    mov ax, [word si]
+    mov cl, [byte bx + 1]
+    sub cl, 30h
+    xor ch, ch
+    cmp cx, 0
+    jle notmul
+    mulloop:
+     add ax, ax
+     loop mulloop
+    notmul:
+    push ax
+    call make_sound
+    pop ax
+    dont_play:
+    mov al, [music_speed]
+    cmp [nt], al
+    jl add_nt
+    mov [nt], 0
+    mov ax, [mp]
+    cmp ax, [music_len]
+    jge make_zero
+    add [mp], 2
+    jmp play_music_ret
+
+    add_nt:
+    inc [nt]
+    jmp play_music_ret
+
+    make_zero:
+    mov [mp], 0
+
+    play_music_ret:
+    
     ret
 endp
 
@@ -2508,13 +2632,16 @@ Start:
         call menu
         pop es
 
-        xor dx, [Clock]
-        mov [NextRandom], dx
+        xor bx, [Clock]
+        and bx, [word cs:bx]
+        mov [NextRandom], bx
 
         call draw_space_ship
         call draw_energy
         call draw_fire_astroids
         call update_health
+        call make_harder
+        call open_speaker
 
         check_time:
             mov dl, [Clock]
@@ -2525,6 +2652,7 @@ Start:
         cycle:
             cmp [play], 0
             je GameOver
+            call play_music
             call clear_player
             call move_player
             cmp [paused], 0
@@ -2573,15 +2701,20 @@ Start:
             mov ah, 9h
             int 21h
 
-
+            restart_loop:
             xor ah, ah
             int 16h
             cmp al, 72h
             je restart
             cmp al, 52h
             je restart
-            
-            call quit
+
+            cmp al, 74h
+            je Exit
+            cmp al, 54h
+            je Exit
+
+            jmp restart_loop
             restart:
                 mov [paused], 1 ;restart all the variables
                 mov [health], 5
@@ -2590,6 +2723,8 @@ Start:
                 mov [word direction + 2], 0
                 mov [x_pos], 160
                 mov [y_pos], 100
+                mov [shield_timer], 18
+                MOV [fire_time], 0
                 mov [play], 1
                 call upadate_points
                 call draw_UI
@@ -2601,6 +2736,7 @@ proc quit ;a debug function
 endp
 
 Exit:
-        mov ax, 4C00h
-        int 21h
-		END start
+    call close_speaker
+    mov ax, 4C00h
+    int 21h
+	END start
