@@ -205,6 +205,25 @@ time_since_last_spawn_fireA dw 0
 fire_astroid_velocity_x dw 3
 fire_astroid_velocity_y dw 5
 
+;rocket
+rockets dw 200, 30, 9 dup(0, 0)
+number_of_rockets dw 1
+max_number_of_rockets dw 10
+rocket_weight dw 20
+rocket_height dw 7
+rocket_colors db 00, 1bh, 16h, 29h, 2ah, 2ch, 1dh ;black, dark grey, grey, red, orange, yellow, very bright grey
+rocket_color_array db 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5
+                   db 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 3, 4
+                   db 1, 1, 1, 1, 2, 2, 2, 2, 6, 6, 2, 2, 6, 6, 6, 2, 2, 4, 0, 0
+                   db 1, 1, 1, 1, 2, 2, 2, 2, 2, 6, 2, 2, 2, 2, 6, 2, 2, 3, 4, 4
+                   db 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 6, 2, 6, 2, 2, 0, 0, 5
+                   db 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 5, 0, 0
+                   db 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4
+rocket_velocity_x dw 4
+rocket_velocity_y dw 2
+rocket_spawn_rate dw 120
+time_since_last_spawn_rocket dw 0
+
 
 		
 CODESEG
@@ -723,6 +742,78 @@ proc clear_fire_astroids
         loop CLnext_fire_astroid
 
     clear_fire_astroids_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
+proc draw_rockets
+    push ax
+    push cx
+    push si
+
+    mov si, offset rockets
+    mov cx, [number_of_rockets]
+
+    cmp cx, 0
+    jle draw_rockets_ret
+
+    sub si, 4
+
+    next_rocket:
+        push cx
+        add si, 4
+        push [rocket_height]
+        push [rocket_weight]
+        push [word si + 2]
+        push [word si]
+        push offset rocket_color_array
+        push offset rocket_colors
+
+        call draw_bytes
+
+        add sp, 12
+        pop cx
+        loop next_rocket
+
+    draw_rockets_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
+proc clear_rockets
+    push ax
+    push cx
+    push si
+
+    mov si, offset rockets
+    mov cx, [number_of_rockets]
+
+    cmp cx, 0
+    jle clear_rockets_ret
+
+    sub si, 4
+
+    CLnext_rocket:
+        push cx
+        add si, 4
+        push [rocket_height]
+        push [rocket_weight]
+        push [word si + 2]
+        push [word si]
+
+        call clear_bytes
+
+        add sp, 8
+        pop cx
+        loop CLnext_rocket
+
+    clear_rockets_ret:
 
     pop si
     pop cx
@@ -1398,7 +1489,7 @@ proc move_player
     ret
 endp
 
-proc move_astroids
+proc move_objects
     push ax
     push bx
     push cx
@@ -1615,6 +1706,82 @@ proc move_astroids
 
     no_fire_astroids:
 
+    mov si, offset rockets
+
+    call clear_rockets
+
+    xor cx, cx
+
+    cmp [number_of_rockets], 0
+    jle no_rockets_closer
+    
+    move_next_rocket: ;adds the velocity and checks if hit the boundries
+
+    mov ax, [word rocket_velocity_x]
+    sub [word si], ax
+    mov ax, [word si + 2]
+    cmp ax, [y_pos]
+    je dont_change_y
+    jl add_y_pos_rocket
+    mov ax, [word rocket_velocity_y]
+    sub [word si + 2], ax
+    JMP dont_change_y
+    add_y_pos_rocket:
+    mov ax, [word rocket_velocity_y]
+    add [word si + 2], ax
+    dont_change_y:
+    cmp [word si], 0
+    jle remove_rocket
+    mov ax, 200
+    sub ax, [rocket_height]
+    cmp [word si + 2], ax
+    jl dont_remove_rocket
+
+    remove_rocket:
+    push si
+    call remove_rocket_from_array
+    pop si
+    jmp no_collision_rocket
+
+    no_rockets_closer:
+        jmp no_rockets
+
+    move_next_rocket_closer:
+        jmp move_next_rocket
+
+    dont_remove_rocket: ;checks if collides the player
+    push cx
+    push [rocket_height]
+    push [rocket_weight]
+    push [word si + 2]
+    push [word si]
+
+    call hit_player
+
+    mov cx, 4
+    poprocketcol:
+        pop dx
+        loop poprocketcol
+    pop cx
+
+    cmp al, 0
+    je no_collision_rocket
+
+    push 0
+    call collided_player
+    pop ax
+    jmp remove_rocket
+
+    no_collision_rocket:
+    add si, 4
+    inc cx
+    cmp cx, [number_of_rockets]
+    jl move_next_rocket_closer
+
+    call draw_rockets
+
+    no_rockets:
+
 
     pop si
     pop dx
@@ -1741,6 +1908,46 @@ proc remove_fire_astroid ;removes a fire astroid and sets the array correctly
         ret
 endp
 
+
+proc remove_rocket_from_array ;removes a rocket and sets the array correctly
+    push bp
+    mov bp, sp
+    push ax
+    push bx
+    push cx
+    push si
+
+
+    mov bx, [bp + 4]
+    mov si, offset rockets
+
+    xor cx, cx
+    replace_rocket:
+        cmp si, bx
+        jle replace_next_rocket
+
+        mov ax, [word si]
+        mov [word si - 4], ax
+
+        mov ax, [word si + 2]
+        mov [word si - 2], ax
+
+        replace_next_rocket:
+        add si, 4
+        inc cx
+        cmp cx, [number_of_rockets]
+        jl replace_rocket
+
+        dec [number_of_rockets]
+
+        pop si
+        pop cx
+        pop bx
+        pop ax
+        pop bp
+        ret
+endp
+
 proc spawn_astroid ;spawn either an astroid or a boost.
     push ax
     push cx
@@ -1835,6 +2042,51 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     pop ax
     ret
 endp
+
+proc spawn_rockets
+    push ax
+    push bx
+    push cx
+    push dx
+
+    cmp [points], 75
+    jl spawn_rockets_ret
+    mov ax, [time_since_last_spawn_rocket]
+    cmp ax, [rocket_spawn_rate]
+    jl spawn_rockets_ret
+    mov [time_since_last_spawn_rocket], 0
+
+    mov bx, offset rockets
+    mov ax, [number_of_rockets]
+    cmp ax, [max_number_of_rockets]
+    jge spawn_rockets_ret
+    inc [number_of_rockets]
+    add bx, ax
+    add bx, ax
+    add bx, ax
+    add bx, ax
+
+    mov cx, 320
+    sub cx, [rocket_weight]
+    call prg
+    and ax, 0000000001111111b
+    add ax, 20
+    mov dx, ax
+
+    mov [word bx], cx
+    mov [word bx + 2], dx
+
+    spawn_rockets_ret:
+    inc [time_since_last_spawn_rocket]
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+
 
 proc pause
     push ax
@@ -2657,7 +2909,8 @@ Start:
             call move_player
             cmp [paused], 0
             je check_time
-            call move_astroids
+            call spawn_rockets
+            call move_objects
             call draw_energy
             call check_indicators
 
