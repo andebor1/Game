@@ -200,13 +200,11 @@ fire_astroids_color_array   db 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 4, 0, 0, 5, 3, 4, 4
                             db 18 dup(0)                                            ;20
 
 ;fire astroids' velocities
-fire_astroids_spawn_rate dw 50
-time_since_last_spawn_fireA dw 0
 fire_astroid_velocity_x dw 3
 fire_astroid_velocity_y dw 5
 
 ;rocket
-rockets dw 200, 30, 9 dup(0, 0)
+rockets dw 10 dup(0, 0)
 number_of_rockets dw 1
 max_number_of_rockets dw 10
 rocket_weight dw 20
@@ -2004,7 +2002,7 @@ proc spawn_astroid ;spawn either an astroid or a boost.
     
     dont_spawn:
 
-    cmp [points], 50
+    cmp [points], 30
     jl dont_spawn_fire
 
     mov ax, [number_of_fire_asteroids]
@@ -2049,7 +2047,7 @@ proc spawn_rockets
     push cx
     push dx
 
-    cmp [points], 75
+    cmp [points], 45
     jl spawn_rockets_ret
     mov ax, [time_since_last_spawn_rocket]
     cmp ax, [rocket_spawn_rate]
