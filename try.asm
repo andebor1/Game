@@ -24,7 +24,7 @@ len_restart_str db 0
 pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
 music_str db "D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1    C1A1C1C1     C1A1C1C1   A1C1F1E1D1D1   D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1   F1 F1 F1F1    F1 F1 F1F1   G1D1E1F1G1G1G1 $"
 music_table dw 110, 123, 131, 147, 165, 175, 196
-music_len dw 66
+music_len dw 66 ;automaticly done in the start of the code
 music_speed db 10
 music_break_len db 1
 nt db 0
@@ -45,7 +45,7 @@ boundry dw 5
 
 ;points
 points_str db "000000", 4, "$"
-points dw 00
+points dw 0
 
 
 ;spaceship draw
@@ -58,6 +58,8 @@ window_color db 16h
 
 last_key_pressed db 0
 timer_pressed db 100
+time_was_pressed db 0
+last_time_was_pressed db 0
 
 ;player stats
 x_pos dw 160
@@ -88,7 +90,7 @@ fire_color_array db 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1, 2, 3, 3
                  db 0, 0, 1, 2, 3, 3, 3, 3, 2, 3, 3, 3, 3, 3, 2
                  db 0, 0, 0, 1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 1
 
-boost_speed dw 5
+boost_speed dw 3
 
 health_timer db 0
 health_weight dw 16
@@ -205,7 +207,7 @@ fire_astroid_velocity_y dw 5
 
 ;rocket
 rockets dw 10 dup(0, 0)
-number_of_rockets dw 1
+number_of_rockets dw 0
 max_number_of_rockets dw 10
 rocket_weight dw 20
 rocket_height dw 7
@@ -217,6 +219,34 @@ rocket_color_array db 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5
                    db 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 6, 2, 6, 2, 2, 0, 0, 5
                    db 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 5, 0, 0
                    db 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4
+rocket120_weight dw 14
+rocket120_height dw 12
+rocket120_color_array db 1 ,1 ,1 ,1 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 1 ,1 ,1 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 1 ,1 ,2 ,2 ,6 ,6 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 0 ,0 ,2 ,6 ,6 ,6 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 0 ,0 ,0 ,2 ,2 ,2 ,6 ,2 ,2 ,0 ,0 ,0 ,0 ,0
+                      db 0 ,0 ,0 ,0 ,2 ,2 ,6 ,6 ,6 ,2 ,5 ,4 ,0 ,0
+                      db 0 ,0 ,0 ,0 ,0 ,2 ,2 ,2 ,2 ,2 ,5 ,3 ,5 ,4
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,2 ,2 ,0 ,3 ,3 ,5 ,3
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,3 ,0 ,5 ,5 ,5 ,5
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,4 ,0 ,3 ,0 ,4 ,3 ,5
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,4 ,3 ,0 ,5 ,0 ,4 ,4
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,5 ,0 ,4 ,4 ,0 ,0
+rocket240_weight dw 14
+rocket240_height dw 12
+rocket240_color_array db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,5 ,0 ,4 ,4 ,0 ,0
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,4 ,3 ,0 ,5 ,0 ,4 ,4
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,4 ,0 ,3 ,0 ,4 ,3 ,5
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,3 ,0 ,5 ,5 ,5 ,5
+                      db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,2 ,2 ,0 ,3 ,3 ,5 ,3
+                      db 0 ,0 ,0 ,0 ,0 ,2 ,2 ,2 ,2 ,2 ,5 ,3 ,5 ,4
+                      db 0 ,0 ,0 ,0 ,2 ,2 ,6 ,6 ,6 ,2 ,5 ,4 ,0 ,0
+                      db 0 ,0 ,0 ,2 ,2 ,2 ,6 ,2 ,2 ,0 ,0 ,0 ,0 ,0
+                      db 0 ,0 ,2 ,6 ,6 ,6 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 1 ,1 ,2 ,2 ,6 ,6 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 1 ,1 ,1 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
+                      db 1 ,1 ,1 ,1 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
 rocket_velocity_x dw 4
 rocket_velocity_y dw 2
 rocket_spawn_rate dw 120
@@ -747,40 +777,49 @@ proc clear_fire_astroids
     ret
 endp
 
-proc draw_rockets
-    push ax
-    push cx
-    push si
+proc draw_rocket
+    push bp
+    mov bp, sp
+    push bx
+    
+    mov bx, [word bp + 4]
+    cmp [word bp + 6], 1
+    je angle120
+    cmp [word bp + 6], 2
+    je angle240
 
-    mov si, offset rockets
-    mov cx, [number_of_rockets]
-
-    cmp cx, 0
-    jle draw_rockets_ret
-
-    sub si, 4
-
-    next_rocket:
-        push cx
-        add si, 4
         push [rocket_height]
         push [rocket_weight]
-        push [word si + 2]
-        push [word si]
+        push [word bx + 2]
+        push [word bx]
         push offset rocket_color_array
         push offset rocket_colors
+        jmp draw_rocket_ret
 
-        call draw_bytes
+    angle120:
+        push [rocket120_height]
+        push [rocket120_weight]
+        push [word bx + 2]
+        push [word bx]
+        push offset rocket120_color_array
+        push offset rocket_colors
+        jmp draw_rocket_ret
 
-        add sp, 12
-        pop cx
-        loop next_rocket
+    angle240:
+        push [rocket240_height]
+        push [rocket240_weight]
+        push [word bx + 2]
+        push [word bx]
+        push offset rocket240_color_array
+        push offset rocket_colors
 
-    draw_rockets_ret:
+    draw_rocket_ret:
+    call draw_bytes
 
-    pop si
-    pop cx
-    pop ax
+    add sp, 12
+
+    pop bx
+    pop bp
     ret
 endp
 
@@ -800,7 +839,7 @@ proc clear_rockets
     CLnext_rocket:
         push cx
         add si, 4
-        push [rocket_height]
+        push [rocket120_height]
         push [rocket_weight]
         push [word si + 2]
         push [word si]
@@ -1245,20 +1284,9 @@ proc move_player
     int 16h
 
     jz dont_start_timer
-    mov [timer_pressed], 10
-
-    jmp move
-
-    dont_start_timer: ;handle the long press delay
-    dec [timer_pressed]
-    cmp [timer_pressed], 0
-    jle finish_closer
-    cmp [last_key_pressed], 1bh
-    je finish_closer
-    mov al, [last_key_pressed]
-
-
-    move:
+    mov [timer_pressed], 11
+    mov ah, 00h
+    int 16h
 
     ;;;; clear keyboard buffer
     push ax
@@ -1267,8 +1295,38 @@ proc move_player
     int 21h
     pop ax
     ;;;;
+
+    jmp move
+
+    dont_start_timer: ;handle the long press delay
+    cmp [time_was_pressed], 0
+    je dont_copy
+    mov al, [time_was_pressed]
+    mov [last_time_was_pressed], al
+    dont_copy:
+    mov [time_was_pressed], 0
+    dec [timer_pressed]
+    cmp [last_time_was_pressed], 1
+    jg dont_simulate
+    cmp [timer_pressed], 2
+    jle finish_closer
+    cmp [last_key_pressed], 1bh
+    je finish_closer
+    mov al, [last_key_pressed]
+    jmp move
+
+    dont_simulate:
+    ;mov [last_time_was_pressed], 0
+    mov [timer_pressed], 0
+    jmp finish_closer
+
+    move:
+    cmp [last_key_pressed], al
+    je move_regular
     mov [last_key_pressed], al
-    
+    mov [time_was_pressed], 0
+    move_regular:
+    inc [time_was_pressed]
 
     cmp al, 1bh ;'esc'
     je pause_check_closer
@@ -1714,7 +1772,7 @@ proc move_objects
     jle no_rockets_closer
     
     move_next_rocket: ;adds the velocity and checks if hit the boundries
-
+    xor dx, dx
     mov ax, [word rocket_velocity_x]
     sub [word si], ax
     mov ax, [word si + 2]
@@ -1723,10 +1781,12 @@ proc move_objects
     jl add_y_pos_rocket
     mov ax, [word rocket_velocity_y]
     sub [word si + 2], ax
-    JMP dont_change_y
+    mov dx, 1
+    jmp dont_change_y
     add_y_pos_rocket:
     mov ax, [word rocket_velocity_y]
     add [word si + 2], ax
+    mov dx, 2
     dont_change_y:
     cmp [word si], 0
     jle remove_rocket
@@ -1739,7 +1799,8 @@ proc move_objects
     push si
     call remove_rocket_from_array
     pop si
-    jmp no_collision_rocket
+    
+    jmp dont_draw_rocket
 
     no_rockets_closer:
         jmp no_rockets
@@ -1748,7 +1809,6 @@ proc move_objects
         jmp move_next_rocket
 
     dont_remove_rocket: ;checks if collides the player
-    push cx
     push [rocket_height]
     push [rocket_weight]
     push [word si + 2]
@@ -1756,11 +1816,7 @@ proc move_objects
 
     call hit_player
 
-    mov cx, 4
-    poprocketcol:
-        pop dx
-        loop poprocketcol
-    pop cx
+    add sp, 8
 
     cmp al, 0
     je no_collision_rocket
@@ -1771,12 +1827,21 @@ proc move_objects
     jmp remove_rocket
 
     no_collision_rocket:
+    push dx
+    push si
+    call draw_rocket
+    add sp, 4
     add si, 4
     inc cx
     cmp cx, [number_of_rockets]
     jl move_next_rocket_closer
+    jmp no_rockets
 
-    call draw_rockets
+    dont_draw_rocket:
+    add si, 4
+    inc cx
+    cmp cx, [number_of_rockets]
+    jl move_next_rocket_closer
 
     no_rockets:
 
@@ -2872,8 +2937,8 @@ Start:
         mov ax, 40h
         mov es, ax
 
-        startgame:
         call set_size
+        startgame:
 
         call clear_screen
         mov bl, 0
