@@ -15,17 +15,17 @@ paused db 1
 play db 1
 menu_str db "WELCOME TO SELF_DESTRUCT!$" 
 menu2_str db "PRESS 'SPACE' TO START!$"
-len_menu_str db 0
-len_menu2_str db 0
+len_menu_str db 0 ;automaticly done at the start of the code
+len_menu2_str db 0 ;automaticly done at the start of the code
 gameover_str db "Game Over$"
-len_game_over_str db 0
+len_game_over_str db 0 ;automaticly done at the start of the code
 restart_str db "Press 'r' to restart$"
-len_restart_str db 0
+len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
-music_str db "D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1    C1A1C1C1     C1A1C1C1   A1C1F1E1D1D1   D1B1D1D1  D1B1D1D1  B1D1G1F1E1E1   F1 F1 F1F1    F1 F1 F1F1   G1D1E1F1G1G1G1 $"
+music_str db "A0 ", "$"
 music_table dw 110, 123, 131, 147, 165, 175, 196
-music_len dw 66 ;automaticly done in the start of the code
-music_speed db 10
+music_len dw 66 ;automaticly done at the start of the code
+music_speed db 5
 music_break_len db 1
 nt db 0
 mp dw 0
@@ -45,7 +45,7 @@ boundry dw 5
 
 ;points
 points_str db "000000", 4, "$"
-points dw 0
+points dw 44
 
 
 ;spaceship draw
@@ -200,6 +200,26 @@ fire_astroids_color_array   db 0, 0, 0, 0, 0, 0, 0, 0, 5, 4, 4, 0, 0, 5, 3, 4, 4
                             db 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;18
                             db 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;19
                             db 18 dup(0)                                            ;20
+
+fire_asteroids_warning_duration db 9
+fire_asteroids_warnings db 10 dup(0, 0, 9)
+number_of_fire_asteroids_warnings dw 0
+max_number_of_fire_asteroids_warnings dw 10
+fire_asteroids_warning_weight dw 5
+fire_asteroids_warning_height dw 12
+fire_asteroids_warning_colors db 00, 29h, 2ch ;black, red, yellow
+fire_asteroids_warning_color_array db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 1, 1, 1, 1, 1
+                                  db 0, 1, 1, 1, 0
+                                  db 0, 0, 0, 0, 0
+                                  db 0, 0, 2, 0, 0
+                                  db 0, 2, 2, 2, 0
+                                  db 0, 2, 2, 2, 0
 
 ;fire astroids' velocities
 fire_astroid_velocity_x dw 3
@@ -770,6 +790,82 @@ proc clear_fire_astroids
         loop CLnext_fire_astroid
 
     clear_fire_astroids_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
+proc draw_fire_astroids_warnings
+    push ax
+    push cx
+    push si
+
+    mov si, offset fire_asteroids_warnings
+    mov cx, [number_of_fire_asteroids_warnings]
+
+    cmp cx, 0
+    jle draw_fire_astroids_warnings_ret
+
+    sub si, 3
+
+    next_fire_astroid_warning:
+        push cx
+        add si, 3
+        push [fire_asteroids_warning_height]
+        push [fire_asteroids_warning_weight]
+        push 15
+        mov ax, [word si]
+        sub ax, 10
+        push ax
+        push offset fire_asteroids_warning_color_array
+        push offset fire_asteroids_warning_colors
+
+        call draw_bytes
+
+        add sp, 12
+        pop cx
+        loop next_fire_astroid_warning
+
+    draw_fire_astroids_warnings_ret:
+
+    pop si
+    pop cx
+    pop ax
+    ret
+endp
+
+proc clear_fire_astroids_warnings
+    push ax
+    push cx
+    push si
+
+    mov si, offset fire_asteroids_warnings
+    mov cx, [number_of_fire_asteroids_warnings]
+
+    cmp cx, 0
+    jle CLdraw_fire_astroids_warnings_ret
+
+    sub si, 3
+
+        CLnext_fire_astroid_warning:
+
+        add si, 3
+        push [fire_asteroids_warning_height]
+        push [fire_asteroids_warning_weight]
+        push 15
+        mov ax, [word si]
+        sub ax, 10
+        push ax
+
+        call clear_bytes
+
+        add sp, 8
+
+        loop CLnext_fire_astroid_warning
+
+    CLdraw_fire_astroids_warnings_ret:
 
     pop si
     pop cx
@@ -1844,7 +1940,8 @@ proc move_objects
     jl move_next_rocket_closer
 
     no_rockets:
-
+    call clear_fire_astroids_warnings
+    call draw_fire_astroids_warnings
 
     pop si
     pop dx
@@ -2080,6 +2177,46 @@ proc spawn_astroid ;spawn either an astroid or a boost.
 
     mov dx, ax
 
+    inc [number_of_fire_asteroids_warnings]
+    mov si, offset fire_asteroids_warnings
+    sub si, 4
+    mov cx, [number_of_fire_asteroids_warnings]
+
+    deeper_into_the_memory_fire_warning: ;sets si to be in the first free place of the array
+        add si, 4
+        loop deeper_into_the_memory_fire_warning
+    
+    mov [word si], dx
+    mov ax, [fire_asteroids_warning_weight]
+    sub [word si], ax
+
+    dont_spawn_fire:
+
+
+    pop si
+    pop dx
+    pop cx
+    pop ax
+    ret
+endp
+
+proc spawn_fire_after_warning ;control the timing of spawning fire asteroids and their warnings
+    push ax
+    push bx
+    push cx
+    push si
+
+    cmp [number_of_fire_asteroids_warnings], 0
+    jle spawn_fire_after_warning_ret
+
+    mov bx, offset fire_asteroids_warnings
+    mov cx, [number_of_fire_asteroids_warnings]
+
+    spawn_fire_loop:
+    push cx
+    cmp [byte bx + 2], 1
+    jg dont_spawn_fire_after_warning
+
     inc [number_of_fire_asteroids]
     mov si, offset fire_asteroids_array
     sub si, 4
@@ -2089,19 +2226,31 @@ proc spawn_astroid ;spawn either an astroid or a boost.
         add si, 4
         loop deeper_into_the_memory_fire
     
-    mov [word si], dx
+    mov ax, [word bx]
+    mov [word si], ax
     mov ax, [fire_asteroids_weight]
     sub [word si], ax
-    mov ax, [fire_asteroids_height]
-    mov [word si + 2], ax
-    add [word si + 2], 5
+    mov [word si + 2], 0
 
-    dont_spawn_fire:
+    mov al, [fire_asteroids_warning_duration]
+    mov [byte bx + 2], al
+    inc [byte bx + 2]
+    call clear_fire_astroids_warnings
+    dec [number_of_fire_asteroids_warnings]
 
+    dont_spawn_fire_after_warning:
+    dec [byte bx + 2]
+
+    add bx, 3
+
+    pop cx
+    loop spawn_fire_loop
+
+    spawn_fire_after_warning_ret:
 
     pop si
-    pop dx
     pop cx
+    pop bx
     pop ax
     ret
 endp
@@ -2117,7 +2266,6 @@ proc spawn_rockets
     mov ax, [time_since_last_spawn_rocket]
     cmp ax, [rocket_spawn_rate]
     jl spawn_rockets_ret
-    mov [time_since_last_spawn_rocket], 0
 
     mov bx, offset rockets
     mov ax, [number_of_rockets]
@@ -2138,6 +2286,15 @@ proc spawn_rockets
 
     mov [word bx], cx
     mov [word bx + 2], dx
+    
+    mov [time_since_last_spawn_rocket], 0
+    call prg ;a one in tree chance to get another rocket faster
+    and ax, 0000000000000111
+    cmp ax, 2
+    jg spawn_rockets_ret
+    mov ax, [rocket_spawn_rate]
+    sub ax, 18
+    mov [time_since_last_spawn_rocket], ax
 
     spawn_rockets_ret:
     inc [time_since_last_spawn_rocket]
@@ -2458,6 +2615,9 @@ proc make_harder ;called when collecting energy
     mov al, ah
     xor ah, ah
     sub [astroids_spawn_rate], ax
+    cmp al, 0
+    jne make_harder_return
+    dec [rocket_spawn_rate]
     jmp make_harder_return
 
     only_velocity:
@@ -2973,6 +3133,7 @@ Start:
             cmp [paused], 0
             je check_time
             call spawn_rockets
+            call spawn_fire_after_warning
             call move_objects
             call draw_energy
             call check_indicators
@@ -3039,6 +3200,9 @@ Start:
                 mov [word direction + 2], 0
                 mov [x_pos], 160
                 mov [y_pos], 100
+                mov [number_of_astroids], 0
+                mov [number_of_fire_asteroids], 0
+                mov [max_number_of_rockets], 0
                 mov [shield_timer], 18
                 MOV [fire_time], 0
                 mov [play], 1
