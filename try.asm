@@ -45,7 +45,7 @@ boundry dw 5
 
 ;points
 points_str db "000000", 4, "$"
-points dw 44
+points dw 0
 
 
 ;spaceship draw
