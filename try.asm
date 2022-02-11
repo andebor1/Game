@@ -21,7 +21,8 @@ gameover_str db "Game Over$"
 len_game_over_str db 0 ;automaticly done at the start of the code
 restart_str db "Press 'r' to restart$"
 len_restart_str db 0 ;automaticly done at the start of the code
-pause_str db "PAUSED", 3 dup(0ah), "press 'esc' to pause/continue$"
+pause_str db "PAUSED$"
+playmusic db 1
 music_str db "A0 ", "$"
 music_table dw 110, 123, 131, 147, 165, 175, 196
 music_len dw 66 ;automaticly done at the start of the code
@@ -32,6 +33,9 @@ mp dw 0
 
 ;menu image
 filename db 'menu.bmp', 0
+instructions_file_name db 'inst.bmp', 0
+
+;open bmp files
 filehandle dw ?
 Header db 54 dup (0)
 Palette db 256*4 dup (0)
@@ -268,7 +272,7 @@ rocket240_color_array db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,5 ,0 ,4 ,4 ,0 ,0
                       db 1 ,1 ,1 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
                       db 1 ,1 ,1 ,1 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
 rocket_velocity_x dw 4
-rocket_velocity_y dw 2
+rocket_velocity_y dw 1
 rocket_spawn_rate dw 120
 time_since_last_spawn_rocket dw 0
 
@@ -1381,8 +1385,8 @@ proc move_player
 
     jz dont_start_timer
     mov [timer_pressed], 11
-    mov ah, 00h
-    int 16h
+    mov ah, 08h
+    int 21h
 
     ;;;; clear keyboard buffer
     push ax
@@ -1429,8 +1433,7 @@ proc move_player
     cmp [paused], 0
     jne dont_pasue_here
 
-    call draw_pause_UI
-    jmp qfunc_closer
+    jmp no_energy_closer
 
     dont_pasue_here:
 
@@ -1461,6 +1464,16 @@ proc move_player
     cmp al, 41h ;A            
     je move_left_closer
 
+    cmp al, 6dh
+    je open_music
+    cmp al, 4dh
+    je open_music
+
+    cmp al, 6eh
+    je close_music
+    cmp al, 4eh
+    je close_music
+
     qfunc_closer:
     jmp qfunc_closer_closer
 
@@ -1471,6 +1484,8 @@ proc move_player
     jmp pause_check
 
     finish_closer:
+        cmp [paused], 0
+        je no_energy_closer
         mov [word direction], 0
         mov [word direction + 2], 0
 
@@ -1485,10 +1500,20 @@ proc move_player
             jmp move_left
         move_right_closer:
             jmp move_right 
+
+    open_music:
+    mov [playmusic], 1
+    call open_speaker
+    jmp qfunc_closer
+    
+    close_music:
+    mov [playmusic], 0
+    call close_speaker
+    jmp qfunc_closer
     
     pause_check:
         call pause
-        jmp qfunc
+        jmp no_energy_closer
 
 
     move_up:
@@ -1505,6 +1530,9 @@ proc move_player
             sub [word direction + 2], 3
             sub [word direction + 2], bx
             jmp finish_closer_closer
+
+    no_energy_closer:
+        jmp no_energy
 
     move_down:
         mov ax, [word direction + 2]
@@ -1556,6 +1584,7 @@ proc move_player
             jmp finish
 
     finish: ;checks the boundries of the x axis
+        call clear_player
         mov ax, [x_pos]
         add ax, [word direction]
         add ax, bx
@@ -2318,6 +2347,7 @@ proc pause
     cmp al, 0
     jne clear_draw_pause_UI
 
+    call clear_player
     call draw_pause_UI ;draws the indicator of the pause
     jmp pause_return
     
@@ -2336,6 +2366,17 @@ proc draw_pause_UI
     push ax
     push bx
     push dx
+
+
+    push es
+    push offset instructions_file_name
+    call OpenFile
+    add sp, 2
+    call ReadHeader
+    call ReadPalette
+    call CopyPal
+    call CopyBitmap
+    pop es
 
     mov bh, 00h ;page
     mov dh, 02h
@@ -2723,22 +2764,27 @@ proc kill_player
 endp
 
 proc OpenFile
-
+    push bp
+    mov bp, sp
     ; Open file
 
     mov ah, 3Dh
     xor al, al
-    mov dx, offset filename
+    mov dx, [word bp + 4]
     int 21h
 
     jc openerror
     mov [filehandle], ax
+    pop bp
     ret
 
     openerror:
+    mov [points], 10
     mov dx, offset ErrorMsg
     mov ah, 9h
     int 21h
+
+    pop bp
     ret
 endp
 
@@ -2858,7 +2904,9 @@ endp
 
 proc menu_img
     ; Process BMP file
+    push offset filename
     call OpenFile
+    add sp, 2
     call ReadHeader
     call ReadPalette
     call CopyPal
@@ -2902,6 +2950,31 @@ proc menu
     int 16h
     cmp al, " "
     jne wait_for_space
+
+    push offset instructions_file_name
+    call OpenFile
+    add sp, 2
+    call ReadHeader
+    call ReadPalette
+    call CopyPal
+    call CopyBitmap
+
+    mov dl, 13h ;prints the menu2 txt
+    sub dl, [len_menu2_str]
+    mov bh, 00h
+    mov dh, 15h
+    mov ah, 02h
+    int 10h
+
+    mov dx, offset menu2_str
+    mov ah, 9h
+    int 21h
+
+    wait_for_space2:
+    mov ah, 0
+    int 16h
+    cmp al, " "
+    jne wait_for_space2
 
     call clear_screen
 
@@ -3028,6 +3101,8 @@ proc make_sound ;gets a frequency and tell the computer to make this sound
 endp
 
 proc play_music
+    cmp al, 1
+    jne dont_play
     mov bx, offset music_str
     add bx, [mp]
     mov al, [byte bx]
@@ -3128,7 +3203,6 @@ Start:
             cmp [play], 0
             je GameOver
             call play_music
-            call clear_player
             call move_player
             cmp [paused], 0
             je check_time
