@@ -23,7 +23,7 @@ restart_str db "Press 'r' to restart$"
 len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED$"
 playmusic db 1
-music_str db "A0 ", "$"
+music_str db "A1B1C1D1D1D1D1     A1B1C1D1D1D1D1  ", "$" ;A is la
 music_table dw 110, 123, 131, 147, 165, 175, 196
 music_len dw 66 ;automaticly done at the start of the code
 music_speed db 5
@@ -2659,6 +2659,7 @@ proc make_harder ;called when collecting energy
     cmp al, 0
     jne make_harder_return
     dec [rocket_spawn_rate]
+    inc [rocket_velocity_x]
     jmp make_harder_return
 
     only_velocity:
@@ -2962,7 +2963,7 @@ proc menu
     mov dl, 13h ;prints the menu2 txt
     sub dl, [len_menu2_str]
     mov bh, 00h
-    mov dh, 15h
+    mov dh, 14h
     mov ah, 02h
     int 10h
 
@@ -3101,8 +3102,9 @@ proc make_sound ;gets a frequency and tell the computer to make this sound
 endp
 
 proc play_music
+    mov al, [playmusic]
     cmp al, 1
-    jne dont_play
+    jne play_music_ret_closer
     mov bx, offset music_str
     add bx, [mp]
     mov al, [byte bx]
@@ -3134,6 +3136,11 @@ proc play_music
     xor ch, ch
     cmp cx, 0
     jle notmul
+
+    jmp mulloop
+    play_music_ret_closer:
+        jmp play_music_ret
+        
     mulloop:
      add ax, ax
      loop mulloop
