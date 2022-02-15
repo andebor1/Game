@@ -11,6 +11,9 @@ NextRandom dw 0
 
 Time_Aux db 0
 paused db 1
+empty_str db 0, 0, 0, 0, 0, 0, "$" ;used to clear texts
+
+background_img db "BG.bmp", 0
 
 play db 1
 menu_str db "WELCOME TO SELF_DESTRUCT!$" 
@@ -23,13 +26,15 @@ restart_str db "Press 'r' to restart$"
 len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED$"
 playmusic db 1
-music_str db "A1B1C1D1D1D1D1     A1B1C1D1D1D1D1  ", "$" ;A is la
+music_str db "B2B2 E2E2 G1 F2 E2 B2 D2 C2 C2", "$" ;A is la
 music_table dw 110, 123, 131, 147, 165, 175, 196
 music_len dw 66 ;automaticly done at the start of the code
-music_speed db 5
-music_break_len db 1
+music_speed db 6
+music_break_len db 2
 nt db 0
 mp dw 0
+beep_timer db 0
+beep_time db 2
 
 ;menu image
 filename db 'menu.bmp', 0
@@ -49,7 +54,8 @@ boundry dw 5
 
 ;points
 points_str db "000000", 4, "$"
-points dw 0
+points dw 40
+flash_timer db 0
 
 
 ;spaceship draw
@@ -71,9 +77,10 @@ y_pos dw 100
 speed dw 1
 direction dw 0, 0
 max_velocity_x dw 5
-max_velocity_y dw 3
+max_velocity_y dw 4
 health dw 5
 health_str db "005", 3, "$"
+player_flash_timer db 0
 
 
 ;indicators
@@ -122,6 +129,13 @@ shield_height dw 20
 shield_height_now dw 20
 shield_x_pos dw 0
 shield_y_pos dw 0
+
+;stars
+stars dw 30 dup (60, 70, 2)
+stars_number dw 3
+stars_max_number dw 30
+stars_color db 0fh ;1dh
+
 
 
 ;energy
@@ -272,7 +286,7 @@ rocket240_color_array db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,5 ,0 ,4 ,4 ,0 ,0
                       db 1 ,1 ,1 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
                       db 1 ,1 ,1 ,1 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
 rocket_velocity_x dw 4
-rocket_velocity_y dw 1
+rocket_velocity_y dw 2
 rocket_spawn_rate dw 120
 time_since_last_spawn_rocket dw 0
 
@@ -332,6 +346,121 @@ proc clear_player ;basicly draws the player with the background color
     pop ax
     ret
 endp
+
+proc spawn_stars
+    push ax
+    push bx
+    push cx
+
+    mov bx, offset stars
+    mov cx, [stars_max_number]
+
+    spawn_star:
+    call prg
+    and ax, 0000000011111111b ;range 0 - 256
+    add ax, 30  ;range 30 - 286
+    mov [word bx], ax
+
+    call prg
+    and ax, 0000000010111111b ;range 0 - 192
+    add ax, 4  ;range 4 - 196
+    mov [word bx + 2], ax
+
+    call prg
+    and ax, 0000000000000101b ;range 0, 1, 2, 6
+    add ax, 3  ;range 2, 3, 4, 8
+    mov [word bx + 4], ax
+
+    add bx, 6
+    loop spawn_star
+
+    mov ax, [stars_max_number]
+    mov [stars_number], ax
+
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+
+proc draw_stars ;draws the stars in the background
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+
+    mov bx, offset stars
+    mov cx, [stars_number]
+    cmp cx, 0
+    je no_stars
+
+    draw_next_star:
+    push cx
+    xor si, si
+    mov dx, [word bx + 2]
+    next_line:
+    mov cx, [word bx]
+    stars_y:
+    mov ax, [word bx + 4] ;each line has diffrent places with color
+    push dx
+    mov dl, 2
+    div dl
+    pop dx
+    xor ah, ah
+    add ax, [word bx]
+    sub ax, si
+    cmp cx, ax
+    jl next_pixel
+    add ax, si
+    add ax, si
+    cmp cx, ax
+    jg next_pixel
+
+    mov ah, 0ch
+    mov al, [stars_color]
+    int 10h
+
+    next_pixel:
+    inc cx
+    mov ax, [word bx]
+    add ax, [word bx + 4]
+    cmp cx, ax
+    jl stars_y
+    inc dx 
+    mov ax, [word bx + 4] ;the first half is growing and the second goes down
+    push dx
+    mov dl, 2
+    div dl
+    pop dx
+    xor ah, ah
+    add ax, [word bx + 2]
+    cmp dx, ax
+    jl longer
+    sub si, 2 ;and then its inc him, so its only substruct 1
+
+    longer:
+    inc si
+    
+    mov ax, [word bx + 2]
+    add ax, [word bx + 4]
+    cmp dx, ax
+    jl next_line
+
+    pop cx
+    add bx, 6
+    loop draw_next_star
+    no_stars:
+
+    
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+endp
+    
 
 proc draw_wing_left_line
     left_line:
@@ -1649,7 +1778,24 @@ proc move_player
         dec [y_pos]
 
     qfunc: ;checks if touches the energy
+        mov al, [player_flash_timer]
+        cmp al, 0
+        jle dont_flash_player
+        xor ah, ah
+        mov dl, 3
+        div dl
+        cmp ah, 1
+        jne dont_flash_player
+        dec [player_flash_timer]
+        jmp after_flash_player
+
+        dont_flash_player:
         call draw_space_ship
+        cmp [player_flash_timer], 0
+        jle after_flash_player
+        dec [player_flash_timer]
+
+        after_flash_player:
         push [energy_height]
         push [energy_weight]
         push [energy_pos_y]
@@ -2477,6 +2623,26 @@ proc draw_UI ;draw the UI, points and health
     push ax
     push dx
 
+    mov al, [flash_timer]
+    xor ah, ah
+    cmp al, 0
+    jle draw_points
+    mov dl, 6
+    div dl
+    cmp ah, 1
+    je draw_points
+    mov bh, 00h
+    mov dh, 02h
+    mov dl, 13h
+    mov ah, 02h
+    int 10h ;set the cursor position
+
+    mov dx, offset empty_str
+    mov ah, 9h
+    int 21h ;clears the points' text
+    dec [flash_timer]
+    jmp draw_health_func
+
     draw_points:
     mov bh, 00h
     mov dh, 02h
@@ -2487,6 +2653,9 @@ proc draw_UI ;draw the UI, points and health
     mov dx, offset points_str
     mov ah, 9h
     int 21h
+    cmp [flash_timer], 0
+    jle draw_health_func
+    dec [flash_timer]
 
     draw_health_func:
     mov bh, 00h
@@ -2509,7 +2678,10 @@ proc collided_player ;funcion that called after the player is hit by something, 
     mov bp, sp
     push ax
 
-    mov ax, [word bp + 4]
+    mov al, [beep_time]
+    mov [beep_timer], al ;make a beep noise
+
+    mov ax, [word bp + 4] ;checks the collision kind
     cmp ax, 2
     je fire_damage
     cmp ax, 0
@@ -2519,6 +2691,7 @@ proc collided_player ;funcion that called after the player is hit by something, 
     jle Die_closer
     sub [health], 1
     call update_health
+    mov [player_flash_timer], 18
     jmp return
 
     fire_damage:
@@ -2526,10 +2699,11 @@ proc collided_player ;funcion that called after the player is hit by something, 
     jle Die_closer
     sub [health], 2
     call update_health
+    mov [player_flash_timer], 27
     jmp return
 
     boost:
-    call prg
+    call prg ;choose a random boost
 
     and ax, 0000000001111111b ;range 0 - 128
 
@@ -2576,6 +2750,7 @@ proc collided_player ;funcion that called after the player is hit by something, 
 
     points_boost:
         add [points], 5
+        mov [flash_timer], 18 ;make a flash to let the player know what he picked up
         call make_harder
 
     return:
@@ -2659,6 +2834,11 @@ proc make_harder ;called when collecting energy
     cmp al, 0
     jne make_harder_return
     dec [rocket_spawn_rate]
+    mov ax, [points]
+    mov dl, 10
+    div dl
+    cmp ah, 0
+    jne make_harder_return
     inc [rocket_velocity_x]
     jmp make_harder_return
 
@@ -3105,6 +3285,12 @@ proc play_music
     mov al, [playmusic]
     cmp al, 1
     jne play_music_ret_closer
+    cmp [beep_timer], 0
+    jle dont_play_beep
+    call play_beep
+    jmp play_music_ret_closer
+
+    dont_play_beep:
     mov bx, offset music_str
     add bx, [mp]
     mov al, [byte bx]
@@ -3171,6 +3357,14 @@ proc play_music
     ret
 endp
 
+proc play_beep
+    push 440
+    call make_sound
+    pop ax
+    dec [beep_timer]
+    ret
+endp
+
 
 Start:
         mov ax, @data
@@ -3200,6 +3394,8 @@ Start:
         call make_harder
         call open_speaker
 
+        call spawn_stars
+
         check_time:
             mov dl, [Clock]
             cmp dl, [Time_Aux]
@@ -3210,6 +3406,7 @@ Start:
             cmp [play], 0
             je GameOver
             call play_music
+            call draw_stars
             call move_player
             cmp [paused], 0
             je check_time
