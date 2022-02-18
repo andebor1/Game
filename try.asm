@@ -25,12 +25,13 @@ len_game_over_str db 0 ;automaticly done at the start of the code
 restart_str db "Press 'r' to restart$"
 len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED$"
+pause_timer db 10
 playmusic db 1
-music_str db "B2B2 E2E2 G1 F2 E2 B2 D2 C2 C2", "$" ;A is la
+music_str db "E1 E1 E1 E1 E1 A2A2   E1 E1 E1E1 D1 C1 D1 C1C1   E1 E1 E1 E1 E1 A2A2   E1 E1 E1E1 D1 C1 D1 C1C1   C1 D1 E1 D1 C1C1 C1 C1 D1D1 C1 B1 C1C1", "$" ;A is la
 music_table dw 110, 123, 131, 147, 165, 175, 196
 music_len dw 66 ;automaticly done at the start of the code
-music_speed db 6
-music_break_len db 2
+music_speed db 2
+music_break_len db 1
 nt db 0
 mp dw 0
 beep_timer db 0
@@ -53,8 +54,8 @@ background_color db 00
 boundry dw 5
 
 ;points
-points_str db "000000", 4, "$"
-points dw 40
+points_str db "000000", 0fh, "$"
+points dw 00
 flash_timer db 0
 
 
@@ -70,6 +71,7 @@ last_key_pressed db 0
 timer_pressed db 100
 time_was_pressed db 0
 last_time_was_pressed db 0
+input db 0
 
 ;player stats
 x_pos dw 160
@@ -389,6 +391,9 @@ proc draw_stars ;draws the stars in the background
     push cx
     push dx
     push si
+
+    cmp [paused], 0
+    je no_stars
 
     mov bx, offset stars
     mov cx, [stars_number]
@@ -1505,27 +1510,64 @@ proc hit_player ;gets: 1) x position, 2) y position, 3) weight, 4) height return
     ret
 endp
 
+proc check_for_input
+    push ax
+
+    mov ah, 01h
+    int 16h
+    jz no_key_pressed
+    xor ah, ah
+    int 16h
+    mov [input], al
+    jmp input_ret
+
+    no_key_pressed:
+    mov [input], 0
+    mov al, 0
+
+    input_ret:
+    xor ah, ah
+    mov [points], ax
+
+    pop ax
+    ret
+endp
+
 proc move_player
     push ax
     push cx
 
+    ;jmp move
+
     mov ah, 01h
     int 16h
+    ;jz dont_start_timer
 
-    jz dont_start_timer
+    in al, 64h
+    cmp al, 10b
+    je finish_closer_helper
+
+    in al, 060h
+    push ax
+
     mov [timer_pressed], 11
-    mov ah, 08h
-    int 21h
+    ;mov ah, 08h
+    ;int 21h
 
     ;;;; clear keyboard buffer
-    push ax
     mov ah, 0ch
-    mov al, 00
+    xor al, al
     int 21h
-    pop ax
     ;;;;
 
+    pop ax
+    mov bl, al
+    and bl, 80h
+    jnz finish_closer_helper ;checks if the key wa released
     jmp move
+
+    finish_closer_helper:
+        jmp finish_closer
 
     dont_start_timer: ;handle the long press delay
     cmp [time_was_pressed], 0
@@ -1538,7 +1580,7 @@ proc move_player
     cmp [last_time_was_pressed], 1
     jg dont_simulate
     cmp [timer_pressed], 2
-    jle finish_closer
+    jle finish_closer_helper
     cmp [last_key_pressed], 1bh
     je finish_closer
     mov al, [last_key_pressed]
@@ -1556,8 +1598,8 @@ proc move_player
     mov [time_was_pressed], 0
     move_regular:
     inc [time_was_pressed]
-
-    cmp al, 1bh ;'esc'
+    
+    cmp al, 1h ;'esc'
     je pause_check_closer
     cmp [paused], 0
     jne dont_pasue_here
@@ -1568,40 +1610,42 @@ proc move_player
 
     mov bx, [speed]
 
-    cmp al, 74h ;t
+    cmp al, 20 ;74h ;t
     je quit_closer
     cmp al, 54h ;T
     je quit_closer
 
-    cmp al, 77h ;w
+    cmp al, 17 ;77h ;w
     je move_up_closer
-    cmp al, 57h ;W
+    cmp al, 48h ;57h ;W
     je move_up_closer
 
-    cmp al, 73h ;s
+    cmp al, 31 ;73h ;s
     je move_down_closer
-    cmp al, 53h ;S
+    cmp al, 50h ;53h ;S
     je move_down_closer
 
-    cmp al, 64h ;d
+    cmp al, 32 ;64h ;d
     je move_right_closer
-    cmp al, 44h ;D
+    cmp al, 4dh ;44h ;D
     je move_right_closer
 
-    cmp al, 61h ;a
+    cmp al, 30 ;61h ;a
     je move_left_closer
-    cmp al, 41h ;A            
+    cmp al, 4bh ;41h ;A            
     je move_left_closer
 
-    cmp al, 6dh
+    cmp al, 50 ;6dh ;m
     je open_music
-    cmp al, 4dh
+    cmp al, 4dh ;M
     je open_music
 
-    cmp al, 6eh
+    cmp al, 49 ;6eh ;n
     je close_music
-    cmp al, 4eh
+    cmp al, 4eh ;N
     je close_music
+
+    jmp finish_closer
 
     qfunc_closer:
     jmp qfunc_closer_closer
@@ -2487,6 +2531,11 @@ proc pause
     push ax
     push bx
 
+    cmp [pause_timer], 0
+    jg pause_return
+
+    mov [pause_timer], 5
+
     mov al, 1 ;switches the pause value
     sub al, [paused]
     mov [paused], al
@@ -2592,7 +2641,7 @@ proc upadate_points ;convert the points from the number object to the string, no
     getto$: ;set the bx in the right place
         mov [byte bx], 0
         inc bx
-        cmp [byte bx], 4
+        cmp [byte bx], 0fh
         jne getto$
     dec bx
 
@@ -3373,7 +3422,13 @@ Start:
         mov ax, 40h
         mov es, ax
 
+        mov ah, 3
+        mov al, 5
+        mov bx, 0
+        int 16h
+
         call set_size
+        call open_speaker
         startgame:
 
         call clear_screen
@@ -3383,8 +3438,11 @@ Start:
         call menu
         pop es
 
-        xor bx, [Clock]
+        xor bx, [Clock] ;starts the randoms with the most random number I could produce by hand
         and bx, [word cs:bx]
+        xor bx, [word ds:bx]
+        or bx, [word Clock + bx]
+        not bx
         mov [NextRandom], bx
 
         call draw_space_ship
@@ -3392,11 +3450,12 @@ Start:
         call draw_fire_astroids
         call update_health
         call make_harder
-        call open_speaker
 
         call spawn_stars
 
         check_time:
+            ;call check_for_input
+            call draw_stars
             mov dl, [Clock]
             cmp dl, [Time_Aux]
             je check_time
@@ -3406,8 +3465,13 @@ Start:
             cmp [play], 0
             je GameOver
             call play_music
-            call draw_stars
             call move_player
+
+            cmp [pause_timer], 0
+            jle already0
+            dec [pause_timer]
+            already0:
+
             cmp [paused], 0
             je check_time
             call spawn_rockets
@@ -3456,6 +3520,7 @@ Start:
             mov ah, 9h
             int 21h
 
+            call close_speaker
             restart_loop:
             xor ah, ah
             int 16h
