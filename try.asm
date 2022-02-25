@@ -3446,7 +3446,6 @@ Start:
         int 16h
 
         call set_size
-        call open_speaker
         startgame:
 
         call clear_screen
@@ -3455,6 +3454,12 @@ Start:
         push es
         call menu
         pop es
+
+        cmp [playmusic], 0
+        je dontopen_speaker
+        call open_speaker
+
+        dontopen_speaker:
 
         xor bx, [Clock] ;starts the randoms with the most random number I could produce by hand
         and bx, [word cs:bx]
