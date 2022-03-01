@@ -36,7 +36,7 @@ music_str db "F1H1D1A1A1C1K0                        F1H1D1A1A1C1A1A1K0K0    K1K1
           db "A1 C1 D1 F1 H1 F1 D1 F1 K0K0        H1 I1 K1 A2 K1K1 H1 I1 J1 K1 A2 K1K1 C1 K0 D1 E1"
           db "C1 C1C1 C1C1 A1 J0 F0 K0K0K0K0K0 H1I1J1 K1 A2 K1K1 H1 I1 J1 K1 A2 K1K1 H1 D1 K0 A1 C1 D1 F1 H1"
           db " F1 D1 F1 D1D1D1D1D1 K0 J0 K0 D1 A1 D1D1 A1 D1 A1 K0 D1 H1 K1K1 H1 D1 K0 A1A1 D1D1 H1 F1F1 D1D1D1D1D1"
-          db "    F0G0                                          F1"
+          db "    F0G0          "
           db "H0D1D1 H0D1D1 H0D1D1D1D1D1D1 D1 F1 G1 H1 D1 F1 H1H1 C1F1 D1D1D1D1D1D1 "
           db "F0G0    H0D1D1 H0D1D1D1D1D1D1D1 A1 K0 J0 A1 D1 H1H1 F1 D1 C1 F1F1F1F1F1F1 "
           db "F0G0 H0D1 H0D1 H0D1D1D1D1D1D1 D1 F1G1 H1 D1 F1 H1H1 C1 F1 D1D1D1D1D1D1 "
@@ -3570,7 +3570,9 @@ Start:
                 mov [number_of_fire_asteroids], 0
                 mov [max_number_of_rockets], 0
                 mov [shield_timer], 18
-                MOV [fire_time], 0
+                mov [fire_time], 0
+                mov [mp], 0
+                mov [nt], 0
                 mov [play], 1
                 call upadate_points
                 call draw_UI
