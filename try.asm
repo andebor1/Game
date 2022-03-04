@@ -27,7 +27,12 @@ len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED$"
 pause_timer db 10
 playmusic db 1
-music_str db "F1H1D1A1A1C1K0                        F1H1D1A1A1C1A1A1K0K0    K1K1 F0G0 "
+music_str db "H1 H1 H1 H1 H1 H1 A2A2 H1 H1 H1H1  F1 D1 F1 D1D1  H1 H1 H1 H1 H1 H1 A2A2 "
+          db "H1 H1 H1H1  F1 D1 F1 D1D1   D1 F1 H1 F1 D1D1 D1 D1 F1F1 D1 C1 D1D1  "
+          db " D1 F1 H1 F1 D1D1D1  D1 D1 F1F1 D1 C1 A1A1   A1A1 H1H1 H1H1H1     A1A1 H1H1  "
+          db "H1H1H1   A1A1 H1H1 H1 H1 I1I1 H1 F1 H1H1H1H1    A1A1 H1H1 H1 H1 I1I1 H1 F1 H1 "
+          db "H1 H1 H1 I1I1 H1 F1 D1D1 D1 D1 F1 F1 D1 C1 A1A1A1A1                                        "
+          db "F1H1D1A1A1C1K0                        F1H1D1A1A1C1A1A1K0K0    K1K1 F0G0 "
           db "H0D1D1 H0D1D1 H0D1D1D1D1D1D1 D1 F1 G1 H1 D1 F1 H1H1 C1F1 D1D1D1D1D1D1 "
           db "F0G0    H0D1D1 H0D1D1D1D1D1D1D1 A1 K0 J0 A1 D1 H1H1 F1 D1 C1 F1F1F1F1F1F1 "
           db "F0G0 H0D1 H0D1 H0D1D1D1D1D1D1 D1 F1G1 H1 D1 F1 H1H1 C1 F1 D1D1D1D1D1D1 "
@@ -3354,6 +3359,8 @@ proc play_music
     jne play_music_ret_closer
     cmp [beep_timer], 0
     jle dont_play_beep
+
+    call open_speaker
     call play_beep
     jmp play_music_ret_closer
 
@@ -3432,6 +3439,66 @@ proc play_beep
     ret
 endp
 
+proc remove_all_objects
+    push bx
+    
+    remove_asteroids:
+    mov bx, offset asteroids_array
+
+    cmp [number_of_astroids], 0
+    jle remove_fire_asteroids
+    dec [number_of_astroids]
+    add bx, [number_of_astroids]
+    add bx, [number_of_astroids]
+    push bx
+    call remove_astroid
+    pop bx
+    jmp remove_asteroids
+
+    remove_fire_asteroids:
+    mov bx, offset fire_asteroids_array
+
+    cmp [number_of_fire_asteroids], 0
+    jle remove_rockets
+    dec [number_of_fire_asteroids]
+    add bx, [number_of_fire_asteroids]
+    add bx, [number_of_fire_asteroids]
+    push bx
+    call remove_fire_astroid
+    pop bx
+    jmp remove_fire_asteroids
+
+    remove_rockets:
+    mov bx, offset rockets
+
+    cmp [number_of_rockets], 0
+    jle remove_powerups
+    dec [number_of_rockets]
+    add bx, [number_of_rockets]
+    add bx, [number_of_rockets]
+    push bx
+    call remove_rocket_from_array
+    pop bx
+    jmp remove_rockets
+
+    remove_powerups:
+    mov bx, offset powerups
+
+    cmp [number_of_powerups], 0
+    jle remove_all_objects_ret
+    dec [number_of_powerups]
+    add bx, [number_of_powerups]
+    add bx, [number_of_powerups]
+    push bx
+    call remove_booster
+    pop bx
+    jmp remove_powerups
+
+    remove_all_objects_ret:
+
+    pop bx
+    ret
+endp
 
 Start:
         mov ax, @data
@@ -3566,9 +3633,7 @@ Start:
                 mov [word direction + 2], 0
                 mov [x_pos], 160
                 mov [y_pos], 100
-                mov [number_of_astroids], 0
-                mov [number_of_fire_asteroids], 0
-                mov [max_number_of_rockets], 0
+                call remove_all_objects
                 mov [shield_timer], 18
                 mov [fire_time], 0
                 mov [mp], 0
