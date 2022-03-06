@@ -27,12 +27,7 @@ len_restart_str db 0 ;automaticly done at the start of the code
 pause_str db "PAUSED$"
 pause_timer db 10
 playmusic db 1
-music_str db "H1 H1 H1 H1 H1 H1 A2A2 H1 H1 H1H1  F1 D1 F1 D1D1  H1 H1 H1 H1 H1 H1 A2A2 "
-          db "H1 H1 H1H1  F1 D1 F1 D1D1   D1 F1 H1 F1 D1D1 D1 D1 F1F1 D1 C1 D1D1  "
-          db " D1 F1 H1 F1 D1D1D1  D1 D1 F1F1 D1 C1 A1A1   A1A1 H1H1 H1H1H1     A1A1 H1H1  "
-          db "H1H1H1   A1A1 H1H1 H1 H1 I1I1 H1 F1 H1H1H1H1    A1A1 H1H1 H1 H1 I1I1 H1 F1 H1 "
-          db "H1 H1 H1 I1I1 H1 F1 D1D1 D1 D1 F1 F1 D1 C1 A1A1A1A1                                        "
-          db "F1H1D1A1A1C1K0                        F1H1D1A1A1C1A1A1K0K0    K1K1 F0G0 "
+music_str db "F1H1D1A1A1C1K0                        F1H1D1A1A1C1A1A1K0K0    K1K1 F0G0 "
           db "H0D1D1 H0D1D1 H0D1D1D1D1D1D1 D1 F1 G1 H1 D1 F1 H1H1 C1F1 D1D1D1D1D1D1 "
           db "F0G0    H0D1D1 H0D1D1D1D1D1D1D1 A1 K0 J0 A1 D1 H1H1 F1 D1 C1 F1F1F1F1F1F1 "
           db "F0G0 H0D1 H0D1 H0D1D1D1D1D1D1 D1 F1G1 H1 D1 F1 H1H1 C1 F1 D1D1D1D1D1D1 "
@@ -50,13 +45,18 @@ music_str db "H1 H1 H1 H1 H1 H1 A2A2 H1 H1 H1H1  F1 D1 F1 D1D1  H1 H1 H1 H1 H1 H
           db "A1 C1 D1 F1 H1 F1 D1 F1 K0K0        H1 I1 K1 A2 K1K1 H1 I1 J1 K1 A2 K1K1 C1 K0 D1 E1"
           db "C1 C1C1 C1C1 A1 J0 F0 K0K0K0K0K0 H1I1J1 K1 A2 K1K1 H1 I1 J1 K1 A2 K1K1 H1 D1 K0 A1 C1 D1 F1 H1"
           db " F1 D1 F1 D1D1D1D1D1 K0 J0 K0 D1 A1 D1D1 A1 D1 A1 K0 D1 H1 K1K1 H1 D1 K0 A1A1 D1D1 H1 F1F1 D1D1D1D1D1"
-          db "    F0G0                                          F1", "$" ;A is la
+          db "    F0G0                                          "
+          db "H1 H1 H1 H1 H1 H1 A2A2 H1 H1 H1H1  F1 D1 F1 D1D1  H1 H1 H1 H1 H1 H1 A2A2 "
+          db "H1 H1 H1H1  F1 D1 F1 D1D1   D1 F1 H1 F1 D1D1 D1 D1 F1F1 D1 C1 D1D1  "
+          db " D1 F1 H1 F1 D1D1D1  D1 D1 F1F1 D1 C1 A1A1   A1A1 H1H1 H1H1H1     A1A1 H1H1  "
+          db "H1H1H1   A1A1 H1H1 H1 H1 I1I1 H1 F1 H1H1H1H1    A1A1 H1H1 H1 H1 I1I1 H1 F1 H1 "
+          db "H1 H1 H1 I1I1 H1 F1 D1D1 D1 D1 F1 F1 D1 C1 A1A1A1A1                                        F1", "$" ;A is la
 music_table dw 110, 117, 123, 131, 139, 147, 156, 165, 175, 185, 196, 208 ;A)A, B)A#, C)B, D)C, E)C#, F)D, G)D#, H)E, I)F, J)F#, K)G, L)G# 
 music_len dw 66 ;automaticly done at the start of the code
 music_speed db 2 ;12 is about quarder
 music_break_len db 1
 nt db 0
-mp dw 0
+mp dw 230
 beep_timer db 0
 beep_time db 2
 
