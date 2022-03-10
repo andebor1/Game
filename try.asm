@@ -56,7 +56,7 @@ music_len dw 66 ;automaticly done at the start of the code
 music_speed db 2 ;12 is about quarder
 music_break_len db 1
 nt db 0
-mp dw 230
+mp dw 0
 beep_timer db 0
 beep_time db 2
 
@@ -78,7 +78,7 @@ boundry dw 5
 
 ;points
 points_str db "000000", 0fh, "$"
-points dw 00
+points dw 0
 flash_timer db 0
 
 
@@ -310,7 +310,7 @@ rocket240_color_array db 0 ,0 ,0 ,0 ,0 ,0 ,0 ,5 ,5 ,0 ,4 ,4 ,0 ,0
                       db 1 ,1 ,2 ,2 ,6 ,6 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0
                       db 1 ,1 ,1 ,2 ,2 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
                       db 1 ,1 ,1 ,1 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0
-rocket_velocity_x dw 4
+rocket_velocity_x dw 3
 rocket_velocity_y dw 2
 rocket_spawn_rate dw 120
 time_since_last_spawn_rocket dw 0
@@ -2125,6 +2125,11 @@ proc move_objects
     mov ax, [word rocket_velocity_y]
     add [word si + 2], ax
     mov dx, 2
+    mov ax, [word si + 2]
+    mov ax, [y_pos]
+    cmp [word si + 2], ax
+    jle dont_change_y
+    mov [word si + 2], ax
     dont_change_y:
     cmp [word si], 0
     jle remove_rocket
@@ -2919,11 +2924,15 @@ proc make_harder ;called when collecting energy
     jg make_harder_return
     mov dl, 4
     div dl
-    cmp ah, 0
-    jne make_harder_return
+    cmp ah, 1
+    je reduce_spawn_rate
+    jg make_harder_return
     inc [astroid_velocity_x]
-    
+    jmp make_harder_return
 
+    reduce_spawn_rate:
+    cmp [astroids_spawn_rate], 13
+    dec [astroids_spawn_rate]
 
     make_harder_return:
 
@@ -3495,6 +3504,7 @@ proc remove_all_objects
     jmp remove_powerups
 
     remove_all_objects_ret:
+    call clear_energy
 
     pop bx
     ret
