@@ -62,6 +62,7 @@ beep_time db 2
 
 ;menu image
 filename db 'menu.bmp', 0
+;instructions screen image
 instructions_file_name db 'inst.bmp', 0
 
 ;open bmp files
@@ -1533,29 +1534,6 @@ proc hit_player ;gets: 1) x position, 2) y position, 3) weight, 4) height return
     ret
 endp
 
-proc check_for_input
-    push ax
-
-    mov ah, 01h
-    int 16h
-    jz no_key_pressed
-    xor ah, ah
-    int 16h
-    mov [input], al
-    jmp input_ret
-
-    no_key_pressed:
-    mov [input], 0
-    mov al, 0
-
-    input_ret:
-    xor ah, ah
-    mov [points], ax
-
-    pop ax
-    ret
-endp
-
 proc move_player
     push ax
     push cx
@@ -1668,7 +1646,13 @@ proc move_player
     cmp al, 4eh ;N
     je close_music
 
+    cmp al, 57 ;space
+    je call_debug
+
     jmp finish_closer
+
+    call_debug:
+        call debug
 
     qfunc_closer:
     jmp qfunc_closer_closer
@@ -2884,7 +2868,7 @@ proc make_harder ;called when collecting energy
     mov ax, [points]
 
     cmp ax, 30
-    jl velocity_and_spawn_rate
+    jle velocity_and_spawn_rate
     cmp ax, 70
     jl only_spawn_rate
     jmp only_velocity
@@ -3041,7 +3025,6 @@ proc OpenFile
     ret
 
     openerror:
-    mov [points], 10
     mov dx, offset ErrorMsg
     mov ah, 9h
     int 21h
@@ -3546,15 +3529,14 @@ Start:
         mov [NextRandom], bx
 
         call draw_space_ship
+        call clear_energy
         call draw_energy
-        call draw_fire_astroids
         call update_health
         call make_harder
 
         call spawn_stars
 
         check_time:
-            ;call check_for_input
             call draw_stars
             mov dl, [Clock]
             cmp dl, [Time_Aux]
@@ -3629,9 +3611,9 @@ Start:
             cmp al, 52h
             je restart
 
-            cmp al, 74h
+            cmp al, 74h ;'t'
             je Exit
-            cmp al, 54h
+            cmp al, 54h ;'T'
             je Exit
 
             jmp restart_loop
@@ -3644,6 +3626,8 @@ Start:
                 mov [x_pos], 160
                 mov [y_pos], 100
                 call remove_all_objects
+                mov [astroid_velocity_x], 1
+                mov [fire_astroid_velocity_x], 3
                 mov [shield_timer], 18
                 mov [fire_time], 0
                 mov [mp], 0
@@ -3652,6 +3636,18 @@ Start:
                 call upadate_points
                 call draw_UI
                 jmp startgame_closer
+
+proc debug
+    ; push ax
+
+    ; add [points], 5
+    ; mov ax, [astroid_velocity_x]
+    ; mov [health], ax
+    ; call update_health
+
+    ; pop ax
+    ret
+endp
 
 proc quit ;a debug function
     jmp Exit
