@@ -1646,13 +1646,13 @@ proc move_player
     cmp al, 4eh ;N
     je close_music
 
-    cmp al, 57 ;space
-    je call_debug
+    ; cmp al, 57 ;space
+    ; je call_debug
 
     jmp finish_closer
 
-    call_debug:
-        call debug
+    ; call_debug:
+    ;     call debug
 
     qfunc_closer:
     jmp qfunc_closer_closer
@@ -2885,7 +2885,8 @@ proc make_harder ;called when collecting energy
     jmp make_harder_return
 
     only_spawn_rate:
-    cmp [astroids_spawn_rate], 25
+    mov [astroid_velocity_x], 4
+    cmp [astroids_spawn_rate], 20
     jle make_harder_return
     mov dl, 5
     div dl
@@ -3637,17 +3638,16 @@ Start:
                 call draw_UI
                 jmp startgame_closer
 
-proc debug
-    ; push ax
-
-    ; add [points], 5
-    ; mov ax, [astroid_velocity_x]
-    ; mov [health], ax
-    ; call update_health
-
-    ; pop ax
-    ret
-endp
+; proc debug
+;     push ax
+;     add [points], 5
+;     call make_harder
+;     mov [astroid_velocity_x], 8
+;     mov [fire_astroid_velocity_y], 5
+;     mov [fire_astroid_velocity_x], 5
+;     pop ax
+;     ret
+; endp
 
 proc quit ;a debug function
     jmp Exit
